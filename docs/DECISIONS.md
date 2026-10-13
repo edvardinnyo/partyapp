@@ -93,4 +93,46 @@ _Még nincs._
 
 ## Implementációs döntések
 
-_Még nincs._
+### I-001 — Projektalap (1. fázis, 2026-10-13)
+
+- **Expo SDK 57** (a legfrissebb stabil; az SDK 58 béta), React Native 0.86, React 19.2, TypeScript 6, `strict: true`.
+- Csomagkezelő: **npm**; Node.js 22 (`.nvmrc`). Új függőség csak `npx expo install`-lal kerül be.
+- Az útvonalak a **`src/app`** mappában vannak (az SDK 57 sablonjának konvenciója); ez felülírja a `PHASE0.md` 5. fejezetében szereplő gyökérszintű `app/` mappát. Útvonal-alias: `@/*` → `src/*`.
+- A `react-dom`, a `react-native-reanimated` és a `react-native-worklets` közvetlen függőségként, az SDK 57-tel kompatibilis verzióra rögzítve szerepel. Ezek az Expo Router függőségei; e nélkül az npm inkompatibilis, túl új verziót telepít.
+- Egységes LF sorvégek (`.gitattributes`), mert a csapat Windowson is dolgozik.
+
+### I-002 — Kódstílus
+
+- A kódban az elnevezések **és a kommentek** angolul vannak; a dokumentáció (README, `docs/`) magyarul.
+- A felületi szövegek a `src/i18n/locales` mappában vannak. A `hu.ts` a forrás; az `en.ts`-nek a TypeScript kikényszeríti, hogy ugyanazokat a kulcsokat tartalmazza.
+- ESLint (`eslint-config-expo`) és Prettier (szimpla idézőjel, 100 karakteres sor). A Markdown-fájlokat a Prettier nem formázza.
+
+### I-003 — Navigációs váz (F5, F6, F7)
+
+- A gyökérben egy Stack van, `Stack.Protected` védelemmel: kijelentkezve csak az `(auth)` csoport, belépve a `(tabs)` csoport és a profil érhető el.
+- A `(tabs)` csoportban pontosan 3 fül van: csevegőtér, Home, profilkereső (Q21). Mindegyik fülnek saját Stackje van, így a fülön belül megnyitott képernyőkön (pl. térkép, csevegőtér, beszélgetés) a navbar látható marad (F7).
+- A profil (`profile/[id]`) a fülek fölött van, ezért ott nincs navbar (F4, F7). A saját profil azonosítója `me`.
+- A Home a középső fül, mégis az a kezdőképernyő: ezt a `Tabs` `initialRouteName` beállítása biztosítja (F5, F6).
+- Belépés: Belépés → Home; Regisztráció → Streaming-szinkron (→ kézi ízlésválasztás) → Home.
+- Az eseményrácsban a koppintás még nem csinál semmit (Q8), a lezárt események menüpontja még nincs a navigációban (Q13).
+
+### I-004 — Helykitöltő munkamenet
+
+- A 2. fázisig a belépés helykitöltő: memóriában tárolt állapot (Zustand). Az app újraindítása után újra a belépő képernyő jelenik meg; kijelentkezés gomb még nincs.
+
+### I-005 — Téma és nyelv (D-002 alapján)
+
+- Helykitöltő színpaletta világos és sötét módra, amíg nincs végleges arculat. A téma a telefon beállítását követi (`userInterfaceStyle: automatic`); ha a telefon nem ad meg semmit, világos.
+- A nyelvet a telefon elsődleges nyelve dönti el (`expo-localization`). Ha a telefon nem ad nyelvi adatot, magyar.
+- A kézi téma- és nyelvváltó a Beállítások képernyővel együtt készül el.
+
+### I-006 — Tesztelés
+
+- Jest (`jest-expo`), React Native Testing Library 14 és `expo-router/testing-library`.
+- Az RNTL 14-ben a `render` és a `fireEvent` aszinkron, ezért a tesztekben `await`-tel hívjuk őket.
+- A navigációs tesztek az F4–F7 elfogadási feltételeit ellenőrzik: 3 navbar-elem sorrendben, belépés után a Home, a profilon nincs navbar, a térképen van, a Követés/Kikövetés gomb váltása.
+
+### I-007 — CI és EAS
+
+- GitHub Actions: `npm ci` → typecheck → lint → tesztek, minden pull requesten és a `main`-re küldött commitokon.
+- Az `eas.json` három profilt tartalmaz (`development`, `preview`, `production`). EAS-projekt még nincs összekötve; az `eas init` után a projektazonosító az `app.config.ts`-be kerül (nem titok). Az EAS Update csatornái az `expo-updates` telepítésekor kerülnek be.
