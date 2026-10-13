@@ -1,0 +1,70 @@
+import type { Translation } from './hu';
+
+export const en: Translation = {
+  common: {
+    placeholder: 'Placeholder',
+    plannedPhase: 'Planned for phase {{phase}}',
+    emptyValue: '—',
+  },
+  tabs: {
+    chats: 'Chat rooms',
+    home: 'Home',
+    search: 'Profile search',
+  },
+  auth: {
+    welcome: 'Nocturnal',
+    signIn: 'Sign in',
+    register: 'Sign up',
+    signInPlaceholder: 'Sign in and sign up with email or a Google account',
+    syncTitle: 'Streaming sync',
+    syncPlaceholder: 'Connect Spotify and other streaming services',
+    chooseManually: "I'd rather choose myself",
+    tasteTitle: 'Music taste',
+    tastePlaceholder: '3–10 genres, up to 20 artists and 20 songs',
+    continue: 'Continue',
+  },
+  home: {
+    openProfile: 'Open profile',
+    openMap: 'Open map',
+    recommendedEvents: 'Recommended events',
+    eventTile: 'Event {{number}}',
+  },
+  map: {
+    title: 'Map',
+    placeholder: 'Map with your position, all events and the distance slider',
+  },
+  chats: {
+    title: 'Chat rooms',
+    listPlaceholder: 'Chat rooms of ongoing events recommended for you',
+    sampleEvent: 'Sample event',
+    roomPlaceholder: 'Real-time chat and photo sharing',
+  },
+  search: {
+    inputPlaceholder: 'Search by name',
+    conversations: 'Conversations',
+    feedTitle: 'Posts from people you follow',
+    feedPlaceholder: 'Posts from the people you follow',
+    results: 'Results',
+    sampleUser: 'Sample user',
+  },
+  conversations: {
+    title: 'Conversations',
+    listPlaceholder: 'Conversations with your friends',
+    sampleConversation: 'Sample conversation',
+    threadPlaceholder: 'Real-time conversation',
+  },
+  profile: {
+    title: 'Profile',
+    genre: 'Genre {{number}}',
+    neuronPlaceholder: 'Your top 3 genres as floating “neurons”',
+    mostVisited: 'Most visited place',
+    topRated: 'Top rated place',
+    lastVisited: 'Last visited place',
+    followers: 'Followers',
+    following: 'Following',
+    follow: 'Follow',
+    unfollow: 'Unfollow',
+    posts: 'Posts',
+    postsPlaceholder: 'The user’s own posts',
+  },
+};
