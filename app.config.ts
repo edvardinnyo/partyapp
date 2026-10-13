@@ -3,10 +3,13 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 // Q1: same identifier on iOS and Android. It cannot change after the first store upload.
 const APP_ID = 'hu.nocturnal.app';
 
-// The EAS project id (extra.eas.projectId) is added here once the project is linked with `eas init`.
-// It is not a secret.
+// EAS project on expo.dev, linked with `eas init`. It is not a secret.
+const EAS_PROJECT_ID = '17317d02-8a22-4d6d-a425-4b1bc7862d57';
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
+  // The EAS project belongs to the team's Expo organization, not to a personal account.
+  owner: 'nocturnal_app',
   name: 'Nocturnal',
   slug: 'nocturnal',
   scheme: 'nocturnal',
@@ -30,4 +33,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     predictiveBackGestureEnabled: false,
   },
   plugins: ['expo-router', 'expo-localization'],
+  extra: {
+    eas: {
+      projectId: EAS_PROJECT_ID,
+    },
+  },
 });

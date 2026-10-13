@@ -65,11 +65,12 @@ src/
 
 ## Build (EAS)
 
-Az `eas.json` három profilt tartalmaz: `development`, `preview` és `production`. A D-003 döntés szerint egyelőre Expo Go-val dolgozunk, ezért buildet még nem futtatunk. Amikor szükség lesz rá:
+Az app az EAS-projekthez már össze van kötve: **`@nocturnal_app/nocturnal`**, a csapat `nocturnal_app` Expo-szervezetében. Az azonosító és a tulajdonos az `app.config.ts`-ben van. Az `eas.json` három profilt tartalmaz: `development`, `preview` és `production`.
+
+A D-003 döntés szerint egyelőre Expo Go-val dolgozunk, ezért buildet még nem futtatunk. Amikor szükség lesz rá:
 
 ```sh
-npx eas-cli@latest login
-npx eas-cli@latest init      # a kapott projektazonosítót az app.config.ts-be kell írni (extra.eas.projectId)
+npx eas-cli@latest login     # olyan fiókkal, amely tagja a nocturnal_app szervezetnek
 npx eas-cli@latest build --profile preview --platform android
 ```
 

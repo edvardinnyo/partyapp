@@ -135,4 +135,5 @@ _Még nincs._
 ### I-007 — CI és EAS
 
 - GitHub Actions: `npm ci` → typecheck → lint → tesztek, minden pull requesten és a `main`-re küldött commitokon.
-- Az `eas.json` három profilt tartalmaz (`development`, `preview`, `production`). EAS-projekt még nincs összekötve; az `eas init` után a projektazonosító az `app.config.ts`-be kerül (nem titok). Az EAS Update csatornái az `expo-updates` telepítésekor kerülnek be.
+- Az `eas.json` három profilt tartalmaz (`development`, `preview`, `production`). Az EAS Update csatornái az `expo-updates` telepítésekor kerülnek be.
+- **EAS-projekt (2026-10-13):** `@nocturnal_app/nocturnal` (azonosító: `17317d02-8a22-4d6d-a425-4b1bc7862d57`), a csapat **`nocturnal_app`** Expo-szervezetében, nem személyes fiókban, hogy mindkét fejlesztő hozzáférjen. A projektazonosító és az `owner` az `app.config.ts`-ben van (nem titok; a dinamikus konfigurációba az `eas init` nem tud automatikusan írni).
