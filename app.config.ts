@@ -32,7 +32,24 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     predictiveBackGestureEnabled: false,
   },
-  plugins: ['expo-router', 'expo-localization'],
+  // iOS permission prompts in Hungarian; the plugin texts below are the English defaults.
+  locales: {
+    hu: './src/i18n/native/hu.json',
+  },
+  plugins: [
+    'expo-router',
+    'expo-localization',
+    'expo-secure-store',
+    'expo-web-browser',
+    [
+      'expo-image-picker',
+      {
+        photosPermission: 'Nocturnal uses your photos so you can choose a profile picture.',
+        cameraPermission: 'Nocturnal uses the camera so you can take a profile picture.',
+        microphonePermission: false,
+      },
+    ],
+  ],
   extra: {
     eas: {
       projectId: EAS_PROJECT_ID,

@@ -1,13 +1,15 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useLocalSearchParams } from 'expo-router';
+import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { AppButton } from '@/components/app-button';
 import { AppText } from '@/components/app-text';
+import { Avatar } from '@/components/avatar';
 import { Placeholder } from '@/components/placeholder';
 import { Screen } from '@/components/screen';
+import { useMyProfile } from '@/features/profile/use-my-profile';
 import { useAppTheme } from '@/theme';
 
 /** Route id of the signed-in user's own profile. */
@@ -16,24 +18,46 @@ const OWN_PROFILE_ID = 'me';
 const GENRE_PLACEHOLDERS = [1, 2, 3];
 
 // F4: own and other profiles share one layout; only the Follow/Unfollow button differs.
-// The profile picture's position is still open (Q18).
+// The profile picture's position is still open (Q18). Other profiles get real data in phase 7.
 export default function ProfileScreen() {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const isOwnProfile = id === OWN_PROFILE_ID;
   const [isFollowing, setIsFollowing] = useState(false);
+  const me = useMyProfile();
+  const ownProfile = isOwnProfile ? me.data?.profile : null;
 
   const places = [t('profile.mostVisited'), t('profile.topRated'), t('profile.lastVisited')];
 
   return (
     <Screen edges={['bottom']}>
+      {isOwnProfile ? (
+        // D-004: Settings opens from the own profile.
+        <Stack.Screen
+          options={{
+            headerRight: () => (
+              <Link href="/settings" asChild>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('profile.openSettings')}
+                  hitSlop={8}
+                >
+                  <Ionicons name="settings-outline" size={24} color={colors.text} />
+                </Pressable>
+              </Link>
+            ),
+          }}
+        />
+      ) : null}
       <View style={styles.identity}>
-        <View
-          style={[styles.avatar, { backgroundColor: colors.surface, borderColor: colors.border }]}
-        >
-          <Ionicons name="person" size={56} color={colors.textMuted} />
-        </View>
+        <Avatar uri={ownProfile?.avatarUrl} size={112} />
+        {ownProfile ? (
+          <View style={styles.names}>
+            <AppText variant="subtitle">{ownProfile.displayName}</AppText>
+            <AppText variant="muted">@{ownProfile.username}</AppText>
+          </View>
+        ) : null}
         <View style={styles.genres}>
           {GENRE_PLACEHOLDERS.map((number) => (
             <View key={number} style={[styles.genre, { borderColor: colors.accent }]}>
@@ -81,13 +105,9 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 8,
   },
-  avatar: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
-    borderWidth: 1,
+  names: {
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 2,
   },
   genres: {
     flexDirection: 'row',
