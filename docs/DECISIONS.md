@@ -39,6 +39,24 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
   - Az EAS-profilok (development, preview, production) konfigurálva vannak, de buildet még nem futtatunk; az `expo-dev-client` csomag még nincs telepítve.
   - Ha egy funkcióhoz olyan natív modul kell, amely nincs az Expo Go-ban (pl. a natív Google-belépés gomb), előtte jelzem, és döntést kérek. Androidon a development build ingyenes.
   - Az Expo Go mindig csak a legfrissebb Expo SDK-t támogatja. Amikor az SDK 58 stabil lesz, frissíteni kell (külön `chore/` ágon), különben az Expo Go nem nyitja meg a projektet.
+- **Kiegészítés (2026-10-18, D-004 alapján):** egyelőre **mindkét platformon Expo Go** marad. A natív Google-gombhoz development build kellene, de nincs Android telefonunk a teszteléshez, és iPhone-ra Apple Developer-tagság nélkül nem készíthető.
+
+### D-004 — Belépés és regisztráció (2. fázis)
+
+- **Dátum:** 2026-10-18
+- **Érintett:** F6, Q4, Q20, Q23
+- **Döntések:**
+  1. **E-mail és jelszó.** Az e-mail-címet a Supabase által küldött 6 jegyű kóddal kell megerősíteni; a jelszó-visszaállítás is kóddal történik.
+  2. **Google-belépés:** a cél a natív gomb, de amíg nincs development build (Android telefon, illetve Apple Developer-tagság), **mindkét platformon a böngészős Google-belépés** működik. A natív változat később, development builddel készül el; a felhasználó ugyanazt a gombot látja.
+  3. **Sign in with Apple** az iOS-kiadás előtt kerül működésbe. A gomb már most elkészül, **csak iOS-en** látszik, és addig koppintásra „Hamarosan elérhető” üzenetet mutat.
+  4. Regisztrációkor kötelező a **megjelenített név** és a **felhasználónév**; a **profilkép opcionális**, alapértelmezettként semleges sziluettel, amíg nincs arculat. A profilkeresőben (F4) **mindkét név alapján** lehet keresni.
+     - A felhasználónév szabályai: 3–20 karakter; kisbetű, szám, pont és aláhúzás; egyedi (kis- és nagybetűtől függetlenül); egyelőre nem módosítható.
+  5. A Home előtt **kötelező megadni az ízlést**; jelenleg ez a kézi választást jelenti.
+  6. **Beállítások:** a saját profilról nyílik, **navbar nélkül**, egyszerű felülettel és bal felső visszanyíllal a profilra. Tartalma: kijelentkezés, téma- és nyelvváltó (D-002), fióktörlés, az ízlés módosítása (D-001).
+  7. Regisztrációkor kötelező **elfogadni az adatvédelmi tájékoztatót** (a végleges szövegig helykitöltővel). **Fióktörlés** a Beállításokban.
+  8. **E-mail-küldés:** a teszteléshez a Supabase beépített szolgáltatása; a saját e-mail-szolgáltatóra később visszatérünk.
+  9. **Meg nem erősített e-mail-cím:** nem lehet vele belépni; belépési kísérletkor az app a kód beírására visz, és új kód kérhető. A felhasználónév és a profil csak a megerősítés után jön létre. A meg nem erősített regisztrációt **7 nap után automatikusan töröljük**.
+  10. **Minimális életkor: 18 év**, egyszerű „Elmúltam 18 éves” jelölőnégyzettel, születési dátum nélkül (Q23 c). A jogi megfelelést a kiadás előtt jogásszal ellenőrizni kell.
 
 ---
 
@@ -137,3 +155,33 @@ _Még nincs._
 - GitHub Actions: `npm ci` → typecheck → lint → tesztek, minden pull requesten és a `main`-re küldött commitokon.
 - Az `eas.json` három profilt tartalmaz (`development`, `preview`, `production`). Az EAS Update csatornái az `expo-updates` telepítésekor kerülnek be.
 - **EAS-projekt (2026-10-13):** `@nocturnal_app/nocturnal` (azonosító: `17317d02-8a22-4d6d-a425-4b1bc7862d57`), a csapat **`nocturnal_app`** Expo-szervezetében, nem személyes fiókban, hogy mindkét fejlesztő hozzáférjen. A projektazonosító és az `owner` az `app.config.ts`-ben van (nem titok; a dinamikus konfigurációba az `eas init` nem tud automatikusan írni).
+
+### I-008 — Backend és API (2. fázis, 2026-10-18)
+
+- **Supabase CLI** fejlesztői függőségként; a `supabase/` mappa össze van kötve a projekttel (`ryqbsalvqwvamhrcliht`, Frankfurt). A `supabase/config.toml` a helyi környezetet írja le, és dokumentálja a távoli Auth-beállításokat; a távoli beállítások a Supabase felületén élnek, a CLI nem írja felül őket.
+- **Migrációk:** a `drizzle-kit` generálja őket a `supabase/migrations` mappába (Supabase-formátumú fájlnevekkel); a tárhely és az időzített feladat kézzel írt SQL-migráció. Felküldés: `npm run db:push` (a CLI ideiglenes belépési szerepet használ, adatbázis-jelszó nem kell).
+- **Séma:** `profiles` tábla (azonosító = auth-felhasználó, felhasználónév egyedi és formátum-ellenőrzött, megjelenített név, profilkép útvonala, a 18+ megerősítés és az adatvédelmi elfogadás időpontja, a tájékoztató verziója, az ízléslépés időpontja). **RLS bekapcsolva, szabályok nélkül**: az appból közvetlenül nem olvasható, csak az API-n át.
+- **API:** egyetlen `api` Edge Function. A logika az `app.ts`-ben van (Hono), az `index.ts` csak összeköt. Hitelesítés: `@supabase/server` `withSupabase({ auth: 'user' })` — a Hono-adapterét nem használjuk, mert 2026. december 1-jén megszűnik. Adatbázis: Drizzle és postgres.js a `SUPABASE_DB_URL`-lel (`prepare: false`, legfeljebb 3 kapcsolat). Tárhely- és felhasználó-törlés: a `supabaseAdmin` kliens.
+- **Fontos:** az új API-kulcsokkal a platform JWT-ellenőrzése a token nélküli kéréseket is továbbengedi a függvényig, ezért a hitelesítést a függvényben futó `withSupabase` végzi. Ellenőrizve: token nélkül és érvénytelen tokennel is 401.
+- **Közös kód:** `supabase/functions/_shared` (zod-adatszerződések és a Drizzle-séma). Az app a `@shared/*` aliasszal éri el. A Deno a relatív importokban megköveteli a `.ts` kiterjesztést, ezért a tsconfigban `allowImportingTsExtensions: true`. A Deno-specifikus `index.ts` kimarad az app típusellenőrzéséből.
+- **Profilképek:** privát `avatars` tárhely (legfeljebb 2 MB, JPEG). Feltöltés az API által kiadott, aláírt feltöltési címre, a `<felhasználó-azonosító>/<véletlen azonosító>.jpg` útvonalra; megjelenítés 1 óráig érvényes, aláírt címmel. A telefonon 512 pixel szélesre kicsinyítve, JPEG-ként.
+- **Adatvédelmi tájékoztató verziója:** `draft-2026-10`, az elfogadással együtt tárolva; a szöveg változásakor emelni kell.
+- **Meg nem erősített regisztrációk:** `pg_cron` feladat naponta 03:00-kor (UTC) törli a 7 napnál régebbieket.
+
+### I-009 — Belépés az appban (2. fázis)
+
+- `supabase-js` **PKCE**-folyamattal. A munkamenet titkosítva tárolódik: az AES-kulcs a SecureStore-ban (Keychain / Keystore), a titkosított munkamenet az AsyncStorage-ban, mert a munkamenet nagyobb lehet a SecureStore méretkorlátjánál. A tokenfrissítés csak előtérben fut.
+- **Állapotgép** (`resolveAppState`): betöltés → kijelentkezve → profil kell → ízlés kell → kész, valamint „nem elérhető”. A gyökér-Stack `Stack.Protected` szabályai ebből döntenek; a splash képernyő addig látszik, amíg az állapot ki nem derül. Hidegindításkor a közvetlen linkek a Home-on kötnek ki, mert a munkamenet aszinkron töltődik.
+- **Jelszó-visszaállítás:** a kód ellenőrzése már bejelentkezteti a felhasználót, ezért egy jelző a belépő folyamatban tartja, amíg az új jelszó el nem mentődik; ha a mentés nem sikerül, kijelentkeztetjük.
+- **Google (böngészős):** `signInWithOAuth` → `WebBrowser.openAuthSessionAsync` → `exchangeCodeForSession`. A visszairányítási cím `Linking.createURL('auth/callback')` (Expo Go-ban `exp://…`); a `+native-intent` a gyökérre irányítja, ha Android deep linkként is kézbesíti.
+- **Kijelentkezés:** csak ezen az eszközön (`scope: 'local'`). A profil létrehozása képernyőn is van kijelentkezés link, mert a beléptetés közben a Beállítások még nem érhető el (pl. ha valaki rossz Google-fiókkal lépett be).
+- **„Nem elérhető” képernyő:** ha bejelentkezés után a profil nem tölthető be (pl. nincs internet), Újra és Kijelentkezés gombbal. Ez hibakezelés, nem új funkció.
+- **Téma és nyelv** (D-002): eszközönként tárolva (Zustand + AsyncStorage); a „Rendszer” a telefont követi.
+- **E-mail-sablonok:** kétnyelvűek (elöl magyar, alatta angol), mert a sablon a nyelvi adat hiányában nem tud megbízhatóan nyelvet váltani. A fájlok: `supabase/templates/`.
+- **Engedélykérő szövegek:** az `app.config.ts`-ben angolul, iOS-re magyar fordítással (`src/i18n/native/hu.json`). Ezek csak saját buildben látszanak; az Expo Go a saját szövegeit mutatja.
+
+### I-010 — Tesztelés (2. fázis)
+
+- Az API tesztjei hamis adatbázissal és tárhellyel futnak (Hono `app.request`), valódi szerver nélkül.
+- Az app folyamattesztjei hamis Supabase- és API-réteggel futnak: belépés, hibás jelszó, meg nem erősített e-mail, regisztráció kóddal, profil létrehozása, a 18+ nélküli tiltás, a kötelező ízléslépés, a navbar, a profilok, a Beállítások, a kijelentkezés és a nyelvváltás.
+- Összesen 47 teszt; mellette `expo export` iOS-re és Androidra, valamint `expo-doctor`.
