@@ -92,8 +92,16 @@ export async function signInWithGoogle(): Promise<'signedIn' | 'cancelled'> {
   if (error) {
     throw error;
   }
+  if (__DEV__) {
+    // Expo Go's address changes with the network; Supabase only returns to an allow-listed URL
+    // (Authentication → URL Configuration) and otherwise falls back to the Site URL.
+    console.info(`[auth] Google sign-in redirect URL: ${redirectTo}`);
+  }
 
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  if (__DEV__) {
+    console.info(`[auth] Google sign-in browser result: ${result.type}`);
+  }
   if (result.type !== 'success') {
     return 'cancelled';
   }

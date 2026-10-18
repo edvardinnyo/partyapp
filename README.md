@@ -28,7 +28,9 @@ cp .env.example .env   # majd töltsd ki (lásd: Környezeti változók)
 npm start
 ```
 
-Ezután a terminálban megjelenő QR-kódot kell beolvasni: iPhone-on a Kamera appal, Androidon az Expo Go-val. A telefon és a gép legyen ugyanazon a Wi-Fi-hálózaton. Ha így nem csatlakozik: `npx expo start --tunnel`.
+Ezután a terminálban megjelenő QR-kódot kell beolvasni: iPhone-on a Kamera appal, Androidon az Expo Go-val. A telefon és a gép legyen ugyanazon a Wi-Fi-hálózaton.
+
+**A Google-belépés kipróbálásához tunnel módban indítsd: `npm run start:tunnel`.** Alapból az Expo Go IP-címes címet használ (`exp://192.168.x.x:8081`), a Supabase pedig biztonsági okból nem irányít vissza IP-címre (a belső `127.0.0.1` kivételével), ezért a belépés után a „Site URL”-re esne vissza. Tunnel módban az Expo Go névvel ellátott címet kap (`exp://….exp.direct`), amit a Supabase `exp://**` szabálya lefed. A tunnel mód akkor is segít, ha a telefon nem tud csatlakozni a géphez.
 
 A `.env` nélkül az app induláskor hibaüzenettel leáll, mert nem tudja, melyik Supabase-projekthez kapcsolódjon.
 
@@ -37,6 +39,7 @@ A `.env` nélkül az app induláskor hibaüzenettel leáll, mert nem tudja, mely
 | Parancs | Mit csinál |
 |---|---|
 | `npm start` | Fejlesztői szerver (Expo Go) |
+| `npm run start:tunnel` | Fejlesztői szerver tunnel módban (az Expo Go-s Google-belépéshez kell) |
 | `npm run typecheck` | TypeScript-ellenőrzés |
 | `npm run lint` | ESLint- és Prettier-ellenőrzés |
 | `npm run format` | A kód automatikus formázása |
@@ -89,7 +92,7 @@ A projekt: `ryqbsalvqwvamhrcliht` (Frankfurt). A Supabase CLI fejlesztői függ�
   - Authentication → Sign In / Providers → Email: e-mail-megerősítés bekapcsolva, **Email OTP Length: 6**, **Minimum password length: 8**.
   - Authentication → Emails → Templates: a „Confirm signup” és a „Reset password” sablon tartalma a `supabase/templates/` két fájlja.
   - Authentication → Sign In / Providers → Google: bekapcsolva (a Client ID és a secret csak itt van, a repóban nincs).
-  - Authentication → URL Configuration → Redirect URLs: `exp://**` (csak fejlesztéshez; kiadás előtt törlendő) és `nocturnal://**`.
+  - Authentication → URL Configuration → Redirect URLs: `exp://**` (az Expo Go tunnel-címeihez; csak fejlesztéshez, kiadás előtt törlendő) és `nocturnal://**`. IP-címes `exp://192.168…` bejegyzés hiába kerül fel: a Supabase az IP-címre való visszairányítást a listától függetlenül elutasítja.
 - **E-mail-küldés:** a Supabase beépített szolgáltatása csak a Supabase-szervezet tagjainak küld, és óránként csak néhány levelet. Teszteléshez mindkét fejlesztő legyen tagja a szervezetnek.
 
 ## Build (EAS)

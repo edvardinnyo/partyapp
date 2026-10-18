@@ -25,6 +25,7 @@ export const hu = {
     forgotPassword: 'Elfelejtetted a jelszavad?',
     or: 'vagy',
     google: 'Folytatás Google-fiókkal',
+    apple: 'Folytatás Apple-fiókkal',
     appleComingSoonTitle: 'Hamarosan elérhető',
     appleComingSoonMessage: 'Az Apple-fiókos belépés hamarosan érkezik.',
     privacyLink: 'Adatvédelmi tájékoztató',

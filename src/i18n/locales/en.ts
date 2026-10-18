@@ -26,6 +26,7 @@ export const en: Translation = {
     forgotPassword: 'Forgot your password?',
     or: 'or',
     google: 'Continue with Google',
+    apple: 'Continue with Apple',
     appleComingSoonTitle: 'Coming soon',
     appleComingSoonMessage: 'Signing in with Apple is coming soon.',
     privacyLink: 'Privacy notice',
