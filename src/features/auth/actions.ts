@@ -87,7 +87,12 @@ export async function signInWithGoogle(): Promise<'signedIn' | 'cancelled'> {
   const redirectTo = Linking.createURL('auth/callback');
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo, skipBrowserRedirect: true },
+    options: {
+      redirectTo,
+      skipBrowserRedirect: true,
+      // Always show Google's account chooser, even when the browser is already signed in.
+      queryParams: { prompt: 'select_account' },
+    },
   });
   if (error) {
     throw error;
