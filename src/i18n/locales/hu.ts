@@ -76,9 +76,9 @@ export const hu = {
     avatarUploadFailed: 'A profilkép feltöltése nem sikerült. Próbáld újra.',
     syncTitle: 'Streaming-szinkron',
     syncIntro:
-      'A streaming-szolgáltatás összekötése hamarosan érkezik. Addig válaszd ki magad a kedvenc műfajaidat.',
+      'Hamarosan összekötheted a streaming-fiókodat, és a zenei ízlésedet a hallgatási szokásaid alapján állítjuk össze. Addig válaszd ki a kedvenc műfajaidat.',
     spotifySoon: 'Spotify összekötése – hamarosan',
-    chooseManually: 'Inkább kiválasztom magam',
+    chooseManually: 'Műfajok kiválasztása',
     tasteTitle: 'Zenei ízlés',
   },
   genres: {
@@ -107,12 +107,12 @@ export const hu = {
   },
   taste: {
     intro:
-      'Válassz {{min}}–{{max}} műfajt a kedvenceid sorrendjében: elöl a legkedvencebb, a végén az, amit simán csak kedvelsz. Az első három lesz a top 3-ad.',
-    count: 'Kiválasztva: {{count}} / {{max}}',
-    orderTitle: 'A sorrended',
+      'Válassz ki {{min}}–{{max}} műfajt fontossági sorrendben. Az első három lesz a top 3-ad, ez alapján ajánlunk neked eseményeket.',
+    count: '{{count}}/{{max}} kiválasztva',
+    orderTitle: 'Fontossági sorrend',
     emptyOrder: 'Még nem választottál műfajt.',
-    mostFavourite: 'legkedvencebb',
-    justLiked: 'simán csak kedvelt',
+    mostFavourite: 'Leginkább kedvelt',
+    justLiked: 'Kevésbé kedvelt',
     top3: 'Top 3',
     rankedGenre: '{{genre}}, {{rank}}. hely',
     editTitle: 'Zenei ízlés',

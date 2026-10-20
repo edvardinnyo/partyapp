@@ -37,10 +37,12 @@ export function createTasteRepository(db: PostgresJsDatabase): TasteRepository {
           .values({ userId, ...profile })
           .onConflictDoUpdate({ target: tasteProfiles.userId, set: profile });
 
+        // Drizzle turns off postgres.js's own date serialisation, so a Date inside a raw `sql`
+        // fragment (unlike a column value) must be passed as an ISO string with a cast.
         await tx
           .update(profiles)
           .set({
-            tasteCompletedAt: sql`coalesce(${profiles.tasteCompletedAt}, ${at})`,
+            tasteCompletedAt: sql`coalesce(${profiles.tasteCompletedAt}, ${at.toISOString()}::timestamptz)`,
             updatedAt: at,
           })
           .where(eq(profiles.id, userId));

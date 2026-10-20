@@ -195,7 +195,7 @@ describe('onboarding (D-004)', () => {
       adultConfirmed: true,
       privacyAccepted: true,
     });
-    expect(await screen.findByText('Inkább kiválasztom magam')).toBeOnTheScreen();
+    expect(await screen.findByText('Műfajok kiválasztása')).toBeOnTheScreen();
   });
 
   it('does not continue without the 18+ confirmation', async () => {
@@ -223,7 +223,7 @@ describe('onboarding (D-004)', () => {
 
     expect(navbarLabels()).toEqual([]);
     expect(await screen.findByText('Spotify összekötése – hamarosan')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByText('Inkább kiválasztom magam'));
+    await fireEvent.press(screen.getByText('Műfajok kiválasztása'));
     await fireEvent.press(await screen.findByLabelText('Rock'));
     await fireEvent.press(screen.getByLabelText('Techno'));
     await fireEvent.press(screen.getByText('Tovább'));
@@ -231,8 +231,8 @@ describe('onboarding (D-004)', () => {
 
     await fireEvent.press(screen.getByLabelText('Jazz'));
     expect(screen.getByLabelText('Rock, 1. hely')).toBeOnTheScreen();
-    expect(screen.getByText('legkedvencebb')).toBeOnTheScreen();
-    expect(screen.getByText('simán csak kedvelt')).toBeOnTheScreen();
+    expect(screen.getByText('Leginkább kedvelt')).toBeOnTheScreen();
+    expect(screen.getByText('Kevésbé kedvelt')).toBeOnTheScreen();
     await fireEvent.press(screen.getByText('Tovább'));
 
     expect(mockedApi.saveTaste).toHaveBeenCalledWith(['rock', 'techno', 'jazz']);

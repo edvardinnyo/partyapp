@@ -79,9 +79,9 @@ export const en: Translation = {
     avatarUploadFailed: 'Uploading the profile picture failed. Please try again.',
     syncTitle: 'Streaming sync',
     syncIntro:
-      'Connecting a streaming service is coming soon. Until then, choose your favourite genres yourself.',
+      'Soon you can connect your streaming account and we will build your music taste from your listening habits. Until then, choose your favourite genres.',
     spotifySoon: 'Connect Spotify – coming soon',
-    chooseManually: "I'd rather choose myself",
+    chooseManually: 'Choose genres',
     tasteTitle: 'Music taste',
   },
   genres: {
@@ -110,12 +110,12 @@ export const en: Translation = {
   },
   taste: {
     intro:
-      'Choose {{min}}–{{max}} genres in order of preference: your favourite first, the ones you simply like last. The first three become your top 3.',
-    count: 'Selected: {{count}} / {{max}}',
-    orderTitle: 'Your order',
+      'Choose {{min}}–{{max}} genres in order of preference. Your first three become your top 3, which we use to recommend events to you.',
+    count: '{{count}}/{{max}} selected',
+    orderTitle: 'Order of preference',
     emptyOrder: 'You have not chosen a genre yet.',
-    mostFavourite: 'favourite',
-    justLiked: 'simply liked',
+    mostFavourite: 'Most liked',
+    justLiked: 'Less liked',
     top3: 'Top 3',
     rankedGenre: '{{genre}}, number {{rank}}',
     editTitle: 'Music taste',

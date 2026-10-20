@@ -67,8 +67,8 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
   2. **A közös műfajlista (22 elem, 2026-10-20):** Techno, House, Drum & bass, Trance, Hardstyle, Bass/dubstep, EDM, Hip-hop/rap, R&B/soul, Pop, Rock, Metal, Punk, Indie/alternatív, Jazz, Funk/disco, Reggae/dancehall, Latin/reggaeton, Klasszikus, Folk/népzene, Mulatós, Retró (80-as, 90-es évek). Ugyanezt a listát használják majd az események is (Q3).
   3. **A Spotify-szinkron egyelőre elmarad** (2026-10-20). A 3. fázisban csak a kézi műfajválasztás és az ízlésprofil számítása készül el; más streaming-szolgáltatás sem kerül be (Q4).
   4. **Hallgatási előzményt nem tárolunk**, csak a kiszámolt ízlésprofilt (műfajok pontszámmal). Ez a későbbi streaming-szinkronra is érvényes.
-  5. **A választás sorrendje számít**, és a képernyő ki is írja: az 1. a „legkedvencebb”, az utolsó a „simán csak kedvelt”; az első három a top 3.
-  6. **A „Streaming-szinkron” képernyő megmarad** a beléptetésben, „Spotify összekötése – hamarosan” jelzéssel és az „Inkább kiválasztom magam” gombbal.
+  5. **A választás sorrendje számít**, és a képernyő ki is írja („Fontossági sorrend”): az 1. a „Leginkább kedvelt”, az utolsó a „Kevésbé kedvelt”; az első három a top 3.
+  6. **A „Streaming-szinkron” képernyő megmarad** a beléptetésben, „Spotify összekötése – hamarosan” jelzéssel és a „Műfajok kiválasztása” gombbal.
 
 ### D-006 — Profil szerkesztése regisztráció után
 

@@ -35,11 +35,21 @@ async function call<T>(
 ) {
   const { data, error } = await supabase.functions.invoke(`api/${path}`, { method, body });
   if (error) {
-    if (error instanceof FunctionsHttpError) {
-      const parsed = apiErrorSchema.safeParse(await error.context.json().catch(() => null));
-      throw new ApiError(parsed.success ? parsed.data.error : 'internal', error.context.status);
+    const apiError =
+      error instanceof FunctionsHttpError
+        ? await (async () => {
+            const parsed = apiErrorSchema.safeParse(await error.context.json().catch(() => null));
+            return new ApiError(
+              parsed.success ? parsed.data.error : 'internal',
+              error.context.status,
+            );
+          })()
+        : new ApiError('network');
+    if (__DEV__) {
+      // Only the route and the error code: never request bodies or tokens.
+      console.warn(`[api] ${method} ${path} failed: ${apiError.code} (${apiError.status ?? '-'})`);
     }
-    throw new ApiError('network');
+    throw apiError;
   }
   return schema.parse(data);
 }
