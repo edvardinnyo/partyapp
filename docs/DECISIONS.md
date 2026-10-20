@@ -89,6 +89,12 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
   4. **Eseményoldal (Q8):** helyszín, időpont, műfajok, fellépők, „Megnyitás a térképen”, valamint egy **„Jegyvásárlás”** gomb. Ez egyelőre „Hamarosan elérhető” üzenetet ad; a partnerségek után a partner jegyoldalára visz.
   5. **Barátok a térképen (Q19):** igen, a javaslat szerint, **a 7. fázisban** (követési rendszerrel): önkéntes bekapcsolás, csak kölcsönös követők, hely szintű pontosság, csak nyitott appnál frissül, pár óra után eltűnik, előzmény nélkül. A 4. fázis térképe úgy készül, hogy ez utólag beköthető legyen.
   6. **Térkép (P-01):** a közeli eseményjelölők számozott csoportba vonódnak.
+- **Kiegészítés (2026-10-21), a 4. fázis jelentésére adott válaszok:**
+  7. **Üres rács (P-02):** ha nincs ajánlott esemény, ez áll: „A beállított távolságon belül most nincs neked ajánlott esemény. Növeld a távolságot a térképen.” A második mondat csak addig, amíg a távolság 200 km alatt van.
+  8. **Helyadat-engedély:** az app a Home első megnyitásakor kéri (nem a térképnél), mert az ajánlás már ott a pozíciótól függ.
+  9. **„Közelgő” esemény:** a következő 7 napban kezdődő.
+  10. **Távolság-kör a térképen** (jóváhagyott javaslat): a beállított távolság körként látszik a pozíciód körül, és a csúszkával együtt változik.
+  11. **„Vissza a pozíciómhoz” gomb a térképen** (jóváhagyott javaslat): mindkét platformon ugyanaz a saját gomb (az Android beépített gombja ki van kapcsolva); a pozíciódra áll vissza, a beállított távolságnyi nézettel. Csak akkor látszik, ha ismert a pozíciód.
 
 ---
 
@@ -282,8 +288,9 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
   - A közeli jelölők a `supercluster` könyvtárral vonódnak számozott csoportba (P-01). A csoport ajánlott színű, ha van benne ajánlott esemény.
   - Az ugyanazon a helyszínen lévő események kb. 20 méterre szétterítve jelennek meg, hogy mindegyikre rá lehessen koppintani.
   - Koppintás: csoportra ránagyít, eseményre megnyitja az eseményoldalt.
+  - A keresési távolság kör alakban látszik (D-007/10), és van „Vissza a pozíciómhoz” gomb (D-007/11).
   - A felúszó kártyák nem takarják a térkép logóját és jogi linkjét (az Apple és a Google feltétele).
   - Androidos buildhez Google Maps-kulcs kell (`GOOGLE_MAPS_ANDROID_API_KEY`, csak a build idején, EAS-környezeti változóként); az Expo Go-hoz nem kell.
-- **Home-rács:** soronként 2 esemény; 6 esemény után egy teljes szélességű „Hirdetés” helykitöltő, de csak események között (D-007/3). Ha nincs ajánlott esemény, egy rövid, tényszerű mondat jelenik meg.
+- **Home-rács:** soronként 2 esemény; 6 esemény után egy teljes szélességű „Hirdetés” helykitöltő, de csak események között (D-007/3). Ha nincs ajánlott esemény, a D-007/7 szerinti üzenet jelenik meg.
 - **Eseményoldal (Q8):** a Home fülön belül van, így a navbar látszik (F7). Tartalma: cím, „Most zajlik” jelzés, időpont, helyszín és cím, műfajok, fellépők, „Jegyvásárlás” („Hamarosan elérhető”) és „Megnyitás a térképen” (a térkép a helyszínre nagyít).
-- **Tesztek:** egységtesztek a CSV-feldolgozásra, az időzóna-átváltásra, az ajánlási pontszámra, az életciklusra, a rács felosztására, a csoportosításra és a dátumformázásra; API-tesztek az új útvonalakra; folyamattesztek (rács hirdetéssel, eseményoldal jegygombbal, működés helyengedély nélkül, a csúszka). Összesen 118 teszt. A migrációkat egy visszagörgetett tranzakcióban a valódi adatbázison is kipróbáltam, mielőtt felkerültek.
+- **Tesztek:** egységtesztek a CSV-feldolgozásra, az időzóna-átváltásra, az ajánlási pontszámra, az életciklusra, a rács felosztására, a csoportosításra és a dátumformázásra; API-tesztek az új útvonalakra; folyamattesztek (rács hirdetéssel, eseményoldal jegygombbal, működés helyengedély nélkül, a csúszka). Összesen 119 teszt. A migrációkat egy visszagörgetett tranzakcióban a valódi adatbázison is kipróbáltam, mielőtt felkerültek.
