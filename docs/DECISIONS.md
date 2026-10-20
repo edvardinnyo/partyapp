@@ -64,8 +64,9 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
 - **Érintett:** F1, D-001, Q4, Q5
 - **Döntések:**
   1. A kézi ízlésválasztásban **egyelőre csak műfajok** választhatók. Az előadók és zenék (Apple Music katalógus, D-001/3) az Apple Developer-tagság megvásárlása után kerülnek be.
-  2. A közös műfajlistára én teszek javaslatot (kb. 20 elem), a csapat véglegesíti.
-- **Nyitott:** a Spotify-szinkron (kell-e, és kinél van Premium a fejlesztői app tulajdonosaként), illetve ettől függően más streaming-szolgáltatások (Q4).
+  2. **A közös műfajlista (22 elem, 2026-10-20):** Techno, House, Drum & bass, Trance, Hardstyle, Bass/dubstep, EDM, Hip-hop/rap, R&B/soul, Pop, Rock, Metal, Punk, Indie/alternatív, Jazz, Funk/disco, Reggae/dancehall, Latin/reggaeton, Klasszikus, Folk/népzene, Mulatós, Retró (80-as, 90-es évek). Ugyanezt a listát használják majd az események is (Q3).
+  3. **A Spotify-szinkron egyelőre elmarad** (2026-10-20). A 3. fázisban csak a kézi műfajválasztás és az ízlésprofil számítása készül el; más streaming-szolgáltatás sem kerül be (Q4).
+  4. **Hallgatási előzményt nem tárolunk**, csak a kiszámolt ízlésprofilt (műfajok pontszámmal). Ez a későbbi streaming-szinkronra is érvényes.
 
 ### D-006 — Profil szerkesztése regisztráció után
 
