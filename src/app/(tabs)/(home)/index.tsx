@@ -1,31 +1,70 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Link } from 'expo-router';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { compareRecommended } from '@shared/recommendation/score-event';
+import { AppButton } from '@/components/app-button';
 import { AppText } from '@/components/app-text';
 import { Avatar } from '@/components/avatar';
+import { FormMessage } from '@/components/form-message';
+import { AdBanner } from '@/features/events/ad-banner';
+import { EventTile } from '@/features/events/event-tile';
+import { buildHomeGridRows, HOME_GRID } from '@/features/events/home-grid';
+import { useNearbyEvents } from '@/features/events/use-nearby-events';
 import { useMyProfile } from '@/features/profile/use-my-profile';
+import { useNow } from '@/lib/use-now';
 import { useAppTheme } from '@/theme';
 
-const EVENT_PLACEHOLDERS = [1, 2, 3, 4, 5, 6];
-
 // F5: profile picture on top, map icon in the top section, recommended events in a grid below.
-// Tapping an event does nothing yet (Q8).
 export default function HomeScreen() {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
   const me = useMyProfile();
+  const nearby = useNearbyEvents();
+  const now = useNow(30_000);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Q7: the recommended live and upcoming events, best match first, then the earlier start.
+  const rows = useMemo(
+    () =>
+      buildHomeGridRows(
+        nearby.events.filter((event) => event.recommended).sort(compareRecommended),
+      ),
+    [nearby.events],
+  );
+
+  async function refresh() {
+    // Nothing to fetch until we know where distances are measured from.
+    if (!nearby.origin) {
+      return;
+    }
+    setRefreshing(true);
+    try {
+      await nearby.refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: colors.background }]}>
       <FlatList
-        data={EVENT_PLACEHOLDERS}
-        keyExtractor={(item) => String(item)}
-        numColumns={2}
-        columnWrapperStyle={styles.gridRow}
+        data={rows}
+        keyExtractor={(row) => row.key}
         contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} />
+        }
         ListHeaderComponent={
           <View style={styles.header}>
             <View style={styles.topBar}>
@@ -48,18 +87,41 @@ export default function HomeScreen() {
               </View>
             </View>
             <AppText variant="subtitle">{t('home.recommendedEvents')}</AppText>
-            <AppText variant="muted">
-              {t('common.placeholder')} · {t('common.plannedPhase', { phase: 4 })}
-            </AppText>
+            {nearby.isApproximate ? (
+              <AppText variant="muted">{t('location.approximate')}</AppText>
+            ) : null}
           </View>
         }
-        renderItem={({ item }) => (
-          <View
-            style={[styles.tile, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          >
-            <AppText>{t('home.eventTile', { number: item })}</AppText>
-          </View>
-        )}
+        ListEmptyComponent={
+          nearby.isError ? (
+            <View style={styles.status}>
+              <FormMessage message={t('common.genericError')} />
+              <AppButton
+                label={t('common.retry')}
+                variant="secondary"
+                onPress={() => void nearby.refetch()}
+              />
+            </View>
+          ) : !nearby.isReady ? (
+            <ActivityIndicator style={styles.status} color={colors.accent} />
+          ) : (
+            <AppText variant="muted" style={styles.status}>
+              {t('home.noRecommendations')}
+            </AppText>
+          )
+        }
+        renderItem={({ item }) =>
+          item.kind === 'ad' ? (
+            <AdBanner />
+          ) : (
+            <View style={styles.gridRow}>
+              {item.events.map((event) => (
+                <EventTile key={event.id} event={event} now={now} />
+              ))}
+              {item.events.length < HOME_GRID.columns ? <View style={styles.gridSpacer} /> : null}
+            </View>
+          )
+        }
       />
     </SafeAreaView>
   );
@@ -89,14 +151,14 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   gridRow: {
+    flexDirection: 'row',
     gap: 12,
   },
-  tile: {
+  gridSpacer: {
     flex: 1,
-    aspectRatio: 1,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    justifyContent: 'flex-end',
+  },
+  status: {
+    marginTop: 24,
+    gap: 12,
   },
 });

@@ -1,27 +1,39 @@
 import { type AuthChangeEvent, AuthApiError, type Session } from '@supabase/supabase-js';
+import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
+import { Alert } from 'react-native';
 
+import type { EventDetail, EventSummary } from '@shared/contracts/events';
 import type { Profile } from '@shared/contracts/profile';
 import { useAuthStore } from '@/features/auth/auth-store';
+import { useLocationStore } from '@/features/location/location-store';
+import { LAUNCH_CITY_CENTER } from '@/features/location/position';
 import { usePreferencesStore } from '@/features/settings/preferences-store';
 import i18n from '@/i18n';
 import { api } from '@/lib/api';
 import { queryClient } from '@/lib/query-client';
 import { supabase } from '@/lib/supabase';
 
-jest.mock('@/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      onAuthStateChange: jest.fn(),
-      signInWithPassword: jest.fn(),
-      signUp: jest.fn(),
-      verifyOtp: jest.fn(),
-      resend: jest.fn(),
-      signOut: jest.fn(),
+jest.mock('@/lib/supabase', () => {
+  const channel = { on: jest.fn(), subscribe: jest.fn() };
+  channel.on.mockReturnValue(channel);
+  channel.subscribe.mockReturnValue(channel);
+  return {
+    supabase: {
+      auth: {
+        onAuthStateChange: jest.fn(),
+        signInWithPassword: jest.fn(),
+        signUp: jest.fn(),
+        verifyOtp: jest.fn(),
+        resend: jest.fn(),
+        signOut: jest.fn(),
+      },
+      channel: jest.fn(() => channel),
+      removeChannel: jest.fn(),
     },
-  },
-}));
+  };
+});
 
 jest.mock('@/lib/api', () => ({
   ApiError: jest.requireActual('@/lib/api').ApiError,
@@ -34,6 +46,10 @@ jest.mock('@/lib/api', () => ({
     getTaste: jest.fn(),
     saveTaste: jest.fn(),
     deleteAccount: jest.fn(),
+    getSettings: jest.fn(),
+    saveSettings: jest.fn(),
+    getNearbyEvents: jest.fn(),
+    getEvent: jest.fn(),
   },
 }));
 
@@ -76,10 +92,36 @@ function navbarLabels() {
   return screen.queryAllByText(NAVBAR_LABELS).map((element) => element.props.children);
 }
 
+const HOUR_MS = 3600 * 1000;
+
+/** A live event 2 km away that matches the taste, unless the overrides say otherwise. */
+function eventSummary(id: string, overrides: Partial<EventSummary> = {}): EventSummary {
+  return {
+    id,
+    title: `Minta esemény ${id}`,
+    kind: 'club',
+    startsAt: new Date(Date.now() - HOUR_MS).toISOString(),
+    endsAt: new Date(Date.now() + 3 * HOUR_MS).toISOString(),
+    venue: {
+      name: 'Minta Klub',
+      address: '1072 Budapest, Minta utca 1.',
+      lat: 47.4987,
+      lng: 19.0634,
+    },
+    genres: ['techno'],
+    distanceKm: 2,
+    score: 0.4,
+    ...overrides,
+  };
+}
+
 beforeEach(async () => {
   jest.clearAllMocks();
   queryClient.clear();
   useAuthStore.setState({ status: 'loading', userId: null, isRecoveringPassword: false });
+  useLocationStore.setState({ status: 'checking', position: null });
+  mockedApi.getSettings.mockResolvedValue({ searchRadiusKm: 25 });
+  mockedApi.getNearbyEvents.mockResolvedValue([]);
   // The test phone's language is English; the assertions use the Hungarian UI.
   usePreferencesStore.setState({ theme: 'system', language: 'hu' });
   await i18n.changeLanguage('hu');
@@ -263,8 +305,96 @@ describe('signed-in app (F4, F5, F7)', () => {
   it('keeps the navbar on screens opened inside a tab', async () => {
     await openFromHome('/map');
 
-    expect(await screen.findByText(/^Térkép a pozícióddal/)).toBeOnTheScreen();
+    expect(await screen.findByText('Távolság: 25 km')).toBeOnTheScreen();
     expect(navbarLabels()).toEqual(['Csevegőtér', 'Home', 'Profilkereső']);
+  });
+
+  it('shows the recommended events in a grid, with an ad banner after six (F5, D-007/3)', async () => {
+    mockedApi.getNearbyEvents.mockResolvedValue([
+      ...['1', '2', '3', '4', '5', '6', '7'].map((id) =>
+        eventSummary(id, { score: 0.5 - Number(id) / 100 }),
+      ),
+      eventSummary('no-match', { score: 0 }),
+      eventSummary('too-far', { distanceKm: 40 }),
+      eventSummary('ended', { endsAt: new Date(Date.now() - HOUR_MS).toISOString() }),
+    ]);
+    await renderRouter(APP_DIR);
+
+    expect(await screen.findByText('Minta esemény 1')).toBeOnTheScreen();
+    expect(screen.getByText('Minta esemény 7')).toBeOnTheScreen();
+    expect(screen.getAllByText('Most zajlik')).toHaveLength(7);
+    expect(screen.getAllByText('Hirdetés')).toHaveLength(1);
+    for (const hidden of ['no-match', 'too-far', 'ended']) {
+      expect(screen.queryByText(`Minta esemény ${hidden}`)).toBeNull();
+    }
+    // F1: measured from the phone's position, rounded to about 100 m.
+    expect(mockedApi.getNearbyEvents).toHaveBeenCalledWith({ lat: 47.498, lng: 19.04 });
+  });
+
+  it('opens the event page with the ticket button, keeping the navbar (Q8, D-007/4)', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const summary = eventSummary('1');
+    const detail: EventDetail = {
+      id: summary.id,
+      title: summary.title,
+      kind: summary.kind,
+      startsAt: summary.startsAt,
+      endsAt: summary.endsAt,
+      venue: summary.venue,
+      genres: ['techno', 'house'],
+      performers: ['Minta DJ'],
+    };
+    mockedApi.getNearbyEvents.mockResolvedValue([summary]);
+    mockedApi.getEvent.mockResolvedValue(detail);
+    await renderRouter(APP_DIR);
+
+    await fireEvent.press(await screen.findByText('Minta esemény 1'));
+
+    expect(await screen.findByText('Minta DJ')).toBeOnTheScreen();
+    expect(mockedApi.getEvent).toHaveBeenCalledWith('1');
+    expect(screen.getByText('1072 Budapest, Minta utca 1.')).toBeOnTheScreen();
+    expect(screen.getByText('House')).toBeOnTheScreen();
+    expect(navbarLabels()).toEqual(['Csevegőtér', 'Home', 'Profilkereső']);
+
+    await fireEvent.press(screen.getByText('Jegyvásárlás'));
+    expect(alert).toHaveBeenCalledWith('Hamarosan elérhető', expect.any(String));
+    expect(screen.getByText('Megnyitás a térképen')).toBeOnTheScreen();
+  });
+
+  it('measures from the centre of Budapest without location access, and says so (F5)', async () => {
+    jest.mocked(Location.getForegroundPermissionsAsync).mockResolvedValue({
+      status: Location.PermissionStatus.DENIED,
+      granted: false,
+      canAskAgain: false,
+      expires: 'never',
+    });
+    await renderRouter(APP_DIR);
+
+    expect(await screen.findByText(/^Nem ismerjük a helyzeted/)).toBeOnTheScreen();
+    expect(mockedApi.getNearbyEvents).toHaveBeenCalledWith(LAUNCH_CITY_CENTER);
+    expect(Location.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
+    expect(await screen.findByText(/nincs neked ajánlott esemény/)).toBeOnTheScreen();
+  });
+
+  it('saves the distance from the map’s slider, and the grid follows it (Q6)', async () => {
+    mockedApi.getNearbyEvents.mockResolvedValue([eventSummary('far', { distanceKm: 40 })]);
+    mockedApi.saveSettings.mockResolvedValue({ searchRadiusKm: 60 });
+    await openFromHome('/map');
+
+    expect(await screen.findByLabelText(/^Minta esemény far, Minta Klub$/)).toBeOnTheScreen();
+    const slider = screen.getByLabelText('Keresési távolság');
+    await fireEvent(slider, 'valueChange', 60);
+    expect(screen.getByText('Távolság: 60 km')).toBeOnTheScreen();
+    await fireEvent(slider, 'slidingComplete', 60);
+
+    expect(mockedApi.saveSettings).toHaveBeenCalledWith({ searchRadiusKm: 60 });
+    expect(
+      await screen.findByLabelText(/^Minta esemény far, Minta Klub, ajánlott$/),
+    ).toBeOnTheScreen();
+
+    // Back on Home, the 40 km away event is now within the distance, so it is recommended.
+    await act(() => router.back());
+    expect(await screen.findByText('Minta esemény far')).toBeOnTheScreen();
   });
 
   it('hides the navbar on another profile and toggles Follow/Unfollow', async () => {
