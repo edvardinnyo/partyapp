@@ -59,6 +59,7 @@ export const API_ERROR_CODES = [
   'profile_exists',
   'profile_missing',
   'invalid_avatar',
+  'not_found',
   'internal',
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];

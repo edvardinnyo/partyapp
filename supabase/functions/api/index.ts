@@ -4,7 +4,9 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
 import { createApp } from './app.ts';
+import { createEventRepository } from './event-repository.ts';
 import { createProfileRepository } from './profile-repository.ts';
+import { createSettingsRepository } from './settings-repository.ts';
 import { createTasteRepository } from './taste-repository.ts';
 import { createAccounts, createAvatarStorage } from './supabase-services.ts';
 
@@ -16,6 +18,8 @@ const db = drizzle({ client });
 const app = createApp({
   profiles: createProfileRepository(db),
   tastes: createTasteRepository(db),
+  settings: createSettingsRepository(db),
+  events: createEventRepository(db),
   newId: () => crypto.randomUUID(),
   now: () => new Date(),
 });

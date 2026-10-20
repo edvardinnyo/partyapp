@@ -49,6 +49,24 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         microphonePermission: false,
       },
     ],
+    [
+      'expo-location',
+      {
+        // Foreground only (CLAUDE.md: no background location; D-007/5 also needs none).
+        locationWhenInUsePermission:
+          'Nocturnal uses your location to recommend events near you and to show them on the map.',
+        locationAlwaysAndWhenInUsePermission: false,
+        locationAlwaysPermission: false,
+        motionUsagePermission: false,
+      },
+    ],
+    [
+      'react-native-maps',
+      {
+        // Android builds need a Google Maps key (Expo Go has its own); see .env.example.
+        androidGoogleMapsApiKey: process.env.GOOGLE_MAPS_ANDROID_API_KEY,
+      },
+    ],
   ],
   extra: {
     eas: {

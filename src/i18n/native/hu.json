@@ -1,4 +1,5 @@
 {
   "NSPhotoLibraryUsageDescription": "A Nocturnal a fotóidhoz azért fér hozzá, hogy profilképet választhass.",
-  "NSCameraUsageDescription": "A Nocturnal a kamerát azért használja, hogy profilképet készíthess."
+  "NSCameraUsageDescription": "A Nocturnal a kamerát azért használja, hogy profilképet készíthess.",
+  "NSLocationWhenInUseUsageDescription": "A Nocturnal a helyzeted alapján ajánl a közeledben lévő eseményeket, és ezt mutatja a térképen."
 }

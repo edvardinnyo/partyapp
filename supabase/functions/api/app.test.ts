@@ -6,13 +6,20 @@ import {
   type ApiBindings,
   type AvatarStorage,
   createApp,
+  type EventRepository,
+  NEARBY_EVENTS_LIMIT,
+  type NearbyEventsQuery,
   type NewProfile,
   PRIVACY_POLICY_VERSION,
   type ProfileRepository,
+  type SettingsRepository,
+  type StoredEvent,
   type StoredProfile,
   type TasteRepository,
 } from './app.ts';
 import type { Genre } from '../_shared/contracts/genres.ts';
+import type { UserSettings } from '../_shared/contracts/settings.ts';
+import type { TasteResult } from '../_shared/taste/compute-taste.ts';
 
 const USER_ID = '7b6f1d2e-0000-4000-8000-000000000001';
 const OTHER_USER_ID = '7b6f1d2e-0000-4000-8000-000000000002';
@@ -54,15 +61,44 @@ function createFakes() {
   };
 
   const chosenGenres = new Map<string, Genre[]>();
-  const topGenres = new Map<string, Genre[]>();
+  const tasteResults = new Map<string, TasteResult>();
   const tastes: TasteRepository = {
     getChosenGenres: async (userId) => chosenGenres.get(userId) ?? [],
-    getTopGenres: async (userId) => topGenres.get(userId) ?? [],
+    getTopGenres: async (userId) => tasteResults.get(userId)?.topGenres ?? [],
+    getResult: async (userId) => tasteResults.get(userId) ?? null,
     save: async (userId, genres, taste, at) => {
       chosenGenres.set(userId, [...genres]);
-      topGenres.set(userId, taste.topGenres);
+      tasteResults.set(userId, taste);
       const row = rows.get(userId);
       if (row && !row.tasteCompletedAt) row.tasteCompletedAt = at;
+    },
+  };
+
+  const savedSettings = new Map<string, UserSettings>();
+  const settings: SettingsRepository = {
+    find: async (userId) => savedSettings.get(userId) ?? null,
+    save: async (userId, value) => {
+      savedSettings.set(userId, value);
+    },
+  };
+
+  const storedEvents: (StoredEvent & { distanceKm: number })[] = [];
+  const nearbyQueries: NearbyEventsQuery[] = [];
+  const events: EventRepository = {
+    findNearby: async (query) => {
+      nearbyQueries.push(query);
+      return storedEvents.filter(
+        (event) =>
+          event.distanceKm <= query.radiusKm &&
+          event.endsAt > query.endsAfter &&
+          event.startsAt < query.startsBefore,
+      );
+    },
+    findById: async (id) => {
+      const found = storedEvents.find((event) => event.id === id);
+      if (!found) return null;
+      const { distanceKm: _distance, ...event } = found;
+      return event;
     },
   };
 
@@ -85,7 +121,20 @@ function createFakes() {
     },
   };
 
-  return { rows, files, deletedUsers, profiles, tastes, avatars, accounts };
+  return {
+    rows,
+    files,
+    deletedUsers,
+    savedSettings,
+    storedEvents,
+    nearbyQueries,
+    profiles,
+    tastes,
+    settings,
+    events,
+    avatars,
+    accounts,
+  };
 }
 
 function setup() {
@@ -93,6 +142,8 @@ function setup() {
   const app = createApp({
     profiles: fakes.profiles,
     tastes: fakes.tastes,
+    settings: fakes.settings,
+    events: fakes.events,
     newId: () => 'file-1',
     now: () => NOW,
   });
@@ -373,6 +424,150 @@ describe('PUT /api/taste (D-001, D-005)', () => {
       expect((await put('/taste', { genres })).status).toBe(400);
     }
     expect((await put('/taste')).status).toBe(400);
+  });
+});
+
+describe('settings (Q6)', () => {
+  it('returns the default radius until the user moves the slider', async () => {
+    const { request } = setup();
+
+    expect(await (await request('/settings')).json()).toEqual({
+      settings: { searchRadiusKm: 25 },
+    });
+  });
+
+  it('saves a radius between 1 and 200 km', async () => {
+    const { post, put, request, savedSettings } = setup();
+    await post('/profile', validProfile);
+
+    const response = await put('/settings', { searchRadiusKm: 120 });
+
+    expect(response.status).toBe(200);
+    expect(savedSettings.get(USER_ID)).toEqual({ searchRadiusKm: 120 });
+    expect(await (await request('/settings')).json()).toEqual({
+      settings: { searchRadiusKm: 120 },
+    });
+  });
+
+  it('rejects radii outside the slider and needs a profile', async () => {
+    const { post, put } = setup();
+
+    expect((await put('/settings', { searchRadiusKm: 30 })).status).toBe(409);
+
+    await post('/profile', validProfile);
+    for (const searchRadiusKm of [0, 201, 2.5, '30', undefined]) {
+      expect((await put('/settings', { searchRadiusKm })).status).toBe(400);
+    }
+  });
+});
+
+const EVENT_ID = '0f8b1c2a-0000-4000-8000-000000000001';
+const OTHER_EVENT_ID = '0f8b1c2a-0000-4000-8000-000000000002';
+const DAY_MS = 24 * 3600 * 1000;
+
+// NOW is 2026-10-18 20:00 UTC: this one has just started.
+const technoNight: StoredEvent & { distanceKm: number } = {
+  id: EVENT_ID,
+  title: 'Minta Techno Éjszaka',
+  kind: 'club',
+  startsAt: new Date('2026-10-18T20:00:00Z'),
+  endsAt: new Date('2026-10-19T04:00:00Z'),
+  genres: ['techno', 'house'],
+  performers: ['Minta DJ'],
+  venue: { name: 'Minta Klub', address: '1072 Budapest, Minta utca 1.', lat: 47.5, lng: 19.06 },
+  distanceKm: 1.23456,
+};
+
+describe('POST /api/events/nearby (F1, F5)', () => {
+  it('scores the live and upcoming events within 200 km by the user’s taste', async () => {
+    const { post, put, storedEvents, nearbyQueries } = setup();
+    await post('/profile', validProfile);
+    await put('/taste', { genres: ['techno', 'rock', 'jazz'] });
+    storedEvents.push(technoNight, {
+      ...technoNight,
+      id: OTHER_EVENT_ID,
+      genres: ['metal'],
+      distanceKm: 150,
+    });
+
+    const response = await post('/events/nearby', { lat: 47.4979, lng: 19.0402 });
+
+    expect(response.status).toBe(200);
+    const { events } = await response.json();
+    expect(events).toEqual([
+      {
+        id: EVENT_ID,
+        title: 'Minta Techno Éjszaka',
+        kind: 'club',
+        startsAt: '2026-10-18T20:00:00.000Z',
+        endsAt: '2026-10-19T04:00:00.000Z',
+        venue: technoNight.venue,
+        genres: ['techno', 'house'],
+        distanceKm: 1.235,
+        score: expect.any(Number),
+      },
+      expect.objectContaining({ id: OTHER_EVENT_ID, distanceKm: 150, score: 0 }),
+    ]);
+    // Techno is the favourite of three ordered genres (weights 1, 0.75, 0.5).
+    expect(events[0].score).toBeCloseTo(1 / 2.25, 5);
+    expect(nearbyQueries).toEqual([
+      {
+        lat: 47.4979,
+        lng: 19.0402,
+        radiusKm: 200,
+        endsAfter: NOW,
+        startsBefore: new Date(NOW.getTime() + 7 * DAY_MS),
+        limit: NEARBY_EVENTS_LIMIT,
+      },
+    ]);
+  });
+
+  it('gives every event a zero score before the taste is chosen', async () => {
+    const { post, storedEvents } = setup();
+    storedEvents.push(technoNight);
+
+    const { events } = await (await post('/events/nearby', { lat: 47.5, lng: 19 })).json();
+
+    expect(events.map((event: { score: number }) => event.score)).toEqual([0]);
+  });
+
+  it('rejects a missing or impossible position', async () => {
+    const { post } = setup();
+
+    for (const body of [undefined, {}, { lat: 91, lng: 19 }, { lat: '47.5', lng: 19 }]) {
+      expect((await post('/events/nearby', body)).status).toBe(400);
+    }
+  });
+});
+
+describe('GET /api/events/:id (Q8)', () => {
+  it('returns the event page data with the performers', async () => {
+    const { request, storedEvents } = setup();
+    storedEvents.push(technoNight);
+
+    const response = await request(`/events/${EVENT_ID}`);
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).event).toEqual({
+      id: EVENT_ID,
+      title: 'Minta Techno Éjszaka',
+      kind: 'club',
+      startsAt: '2026-10-18T20:00:00.000Z',
+      endsAt: '2026-10-19T04:00:00.000Z',
+      venue: technoNight.venue,
+      genres: ['techno', 'house'],
+      performers: ['Minta DJ'],
+    });
+  });
+
+  it('answers not_found for an unknown or malformed id', async () => {
+    const { request } = setup();
+
+    for (const id of [OTHER_EVENT_ID, 'not-an-id']) {
+      const response = await request(`/events/${id}`);
+      expect(response.status).toBe(404);
+      expect(await response.json()).toEqual({ error: 'not_found' });
+    }
   });
 });
 

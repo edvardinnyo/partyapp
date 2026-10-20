@@ -12,7 +12,15 @@ import {
   type UpdateProfileInput,
   usernameAvailabilitySchema,
 } from '@shared/contracts/profile';
+import {
+  type EventDetail,
+  eventDetailResponseSchema,
+  type EventSummary,
+  type NearbyEventsInput,
+  nearbyEventsResponseSchema,
+} from '@shared/contracts/events';
 import { type Genre, isGenre, tasteResponseSchema } from '@shared/contracts/genres';
+import { settingsResponseSchema, type UserSettings } from '@shared/contracts/settings';
 import { supabase } from '@/lib/supabase';
 
 export class ApiError extends Error {
@@ -80,4 +88,17 @@ export const api = {
   deleteAccount: async (): Promise<void> => {
     await call('account', 'DELETE', z.unknown());
   },
+
+  getSettings: async (): Promise<UserSettings> =>
+    (await call('settings', 'GET', settingsResponseSchema)).settings,
+
+  saveSettings: async (settings: UserSettings): Promise<UserSettings> =>
+    (await call('settings', 'PUT', settingsResponseSchema, settings)).settings,
+
+  /** F1, F5: live and upcoming events around the position, each with its distance and score. */
+  getNearbyEvents: async (position: NearbyEventsInput): Promise<EventSummary[]> =>
+    (await call('events/nearby', 'POST', nearbyEventsResponseSchema, position)).events,
+
+  getEvent: async (id: string): Promise<EventDetail> =>
+    (await call(`events/${encodeURIComponent(id)}`, 'GET', eventDetailResponseSchema)).event,
 };

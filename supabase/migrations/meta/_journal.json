@@ -29,6 +29,27 @@
       "when": 1792527251563,
       "tag": "20261020201411_taste",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792531554569,
+      "tag": "20261020212554_postgis",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792531560007,
+      "tag": "20261020212600_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792531572191,
+      "tag": "20261020212612_events_import",
+      "breakpoints": true
     }
   ]
 }

@@ -36,6 +36,8 @@ export default function EditTasteScreen() {
     try {
       queryClient.setQueryData(queryKeys.me, await api.saveTaste(genres));
       queryClient.setQueryData(queryKeys.taste, genres);
+      // The taste decides which events are recommended (F1).
+      void queryClient.invalidateQueries({ queryKey: queryKeys.events });
       router.back();
     } catch {
       setError(t('common.genericError'));
