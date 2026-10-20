@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { AppButton } from '@/components/app-button';
 import { AppText } from '@/components/app-text';
 import { FormMessage } from '@/components/form-message';
-import { Placeholder } from '@/components/placeholder';
+import { ListRow } from '@/components/list-row';
 import { Screen } from '@/components/screen';
 import { SegmentedControl } from '@/components/segmented-control';
 import { deleteAccount, signOut } from '@/features/auth/actions';
@@ -78,7 +78,7 @@ export default function SettingsScreen() {
         />
       </Section>
       <Section title={t('settings.taste')}>
-        <Placeholder label={t('settings.editTaste')} phase={3} />
+        <ListRow label={t('settings.editTaste')} href="/edit-taste" />
       </Section>
       <Section title={t('settings.account')}>
         <FormMessage message={error} />

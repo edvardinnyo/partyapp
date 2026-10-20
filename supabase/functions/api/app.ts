@@ -10,6 +10,12 @@ import {
   updateProfileInputSchema,
   usernameSchema,
 } from '../_shared/contracts/profile.ts';
+import { type Genre, tasteInputSchema } from '../_shared/contracts/genres.ts';
+import {
+  computeTaste,
+  manualGenreSignals,
+  type TasteResult,
+} from '../_shared/taste/compute-taste.ts';
 
 /** Version of the privacy notice users accept at sign-up. Bump it when the text changes. */
 export const PRIVACY_POLICY_VERSION = 'draft-2026-10';
@@ -36,12 +42,19 @@ export interface ProfileRepository {
   findById(userId: string): Promise<StoredProfile | null>;
   isUsernameTaken(username: string): Promise<boolean>;
   create(profile: NewProfile): Promise<StoredProfile | 'username_taken' | 'profile_exists'>;
-  markTasteCompleted(userId: string, at: Date): Promise<StoredProfile | null>;
   update(
     userId: string,
     changes: { displayName?: string; avatarPath?: string | null },
     at: Date,
   ): Promise<StoredProfile | null>;
+}
+
+export interface TasteRepository {
+  /** The manual choice, favourite first. */
+  getChosenGenres(userId: string): Promise<Genre[]>;
+  getTopGenres(userId: string): Promise<Genre[]>;
+  /** Replaces the choice and the profile, and marks the taste step as done. */
+  save(userId: string, genres: readonly Genre[], taste: TasteResult, at: Date): Promise<void>;
 }
 
 export interface AvatarStorage {
@@ -58,6 +71,7 @@ export interface Accounts {
 
 export type ApiDeps = {
   profiles: ProfileRepository;
+  tastes: TasteRepository;
   newId: () => string;
   now: () => Date;
 };
@@ -78,7 +92,7 @@ async function isUsableAvatar(path: string, userId: string, avatars: AvatarStora
   return path.startsWith(`${userId}/`) && !path.includes('..') && (await avatars.exists(path));
 }
 
-export function createApp({ profiles, newId, now }: ApiDeps) {
+export function createApp({ profiles, tastes, newId, now }: ApiDeps) {
   const app = new Hono<{ Bindings: ApiBindings }>().basePath('/api');
 
   async function toProfile(stored: StoredProfile, avatars: AvatarStorage): Promise<Profile> {
@@ -88,6 +102,7 @@ export function createApp({ profiles, newId, now }: ApiDeps) {
       displayName: stored.displayName,
       avatarUrl: stored.avatarPath ? await avatars.createSignedUrl(stored.avatarPath) : null,
       tasteCompleted: stored.tasteCompletedAt !== null,
+      topGenres: await tastes.getTopGenres(stored.id),
     };
   }
 
@@ -166,13 +181,27 @@ export function createApp({ profiles, newId, now }: ApiDeps) {
     return c.json({ profile: await toProfile(updated, avatars) });
   });
 
-  // Placeholder for the taste step until phase 3 stores the real taste profile.
-  app.post('/onboarding/taste', async (c) => {
-    const updated = await profiles.markTasteCompleted(c.env.userId, now());
-    if (!updated) {
+  app.get('/taste', async (c) => {
+    return c.json({ genres: await tastes.getChosenGenres(c.env.userId) });
+  });
+
+  // D-001, D-005: the manual choice in the user's order; saving it computes the taste profile
+  // and completes the onboarding taste step.
+  app.put('/taste', async (c) => {
+    const parsed = tasteInputSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) {
+      return c.json(apiError('invalid_input'), 400);
+    }
+    const { userId, avatars } = c.env;
+    if (!(await profiles.findById(userId))) {
       return c.json(apiError('profile_missing'), 409);
     }
-    return c.json({ profile: await toProfile(updated, c.env.avatars) });
+
+    const { genres } = parsed.data;
+    await tastes.save(userId, genres, computeTaste({ manual: manualGenreSignals(genres) }), now());
+
+    const updated = await profiles.findById(userId);
+    return c.json({ profile: updated ? await toProfile(updated, avatars) : null });
   });
 
   // D-004: immediate and final. The profile row goes with the auth user (ON DELETE CASCADE).

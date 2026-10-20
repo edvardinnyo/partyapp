@@ -31,7 +31,8 @@ jest.mock('@/lib/api', () => ({
     createAvatarUpload: jest.fn(),
     createProfile: jest.fn(),
     updateProfile: jest.fn(),
-    completeTaste: jest.fn(),
+    getTaste: jest.fn(),
+    saveTaste: jest.fn(),
     deleteAccount: jest.fn(),
   },
 }));
@@ -50,6 +51,7 @@ const readyProfile: Profile = {
   displayName: 'Fekete Olivér',
   avatarUrl: null,
   tasteCompleted: true,
+  topGenres: ['techno', 'house', 'pop'],
 };
 
 type AuthCallback = (event: AuthChangeEvent, session: Session | null) => void;
@@ -211,17 +213,29 @@ describe('onboarding (D-004)', () => {
     expect(mockedApi.createProfile).not.toHaveBeenCalled();
   });
 
-  it('requires the taste step before Home', async () => {
+  it('requires choosing 3–10 genres in order before Home (D-001, D-005)', async () => {
     startSignedInAs(USER_ID);
     mockedApi.getMe.mockResolvedValue({ profile: { ...readyProfile, tasteCompleted: false } });
-    mockedApi.completeTaste.mockResolvedValue({ profile: readyProfile });
+    mockedApi.saveTaste.mockResolvedValue({
+      profile: { ...readyProfile, topGenres: ['rock', 'techno', 'jazz'] },
+    });
     await renderRouter(APP_DIR);
 
     expect(navbarLabels()).toEqual([]);
-    await fireEvent.press(await screen.findByText('Inkább kiválasztom magam'));
-    await fireEvent.press(await screen.findByText('Tovább'));
+    expect(await screen.findByText('Spotify összekötése – hamarosan')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByText('Inkább kiválasztom magam'));
+    await fireEvent.press(await screen.findByLabelText('Rock'));
+    await fireEvent.press(screen.getByLabelText('Techno'));
+    await fireEvent.press(screen.getByText('Tovább'));
+    expect(mockedApi.saveTaste).not.toHaveBeenCalled();
 
-    expect(mockedApi.completeTaste).toHaveBeenCalled();
+    await fireEvent.press(screen.getByLabelText('Jazz'));
+    expect(screen.getByLabelText('Rock, 1. hely')).toBeOnTheScreen();
+    expect(screen.getByText('legkedvencebb')).toBeOnTheScreen();
+    expect(screen.getByText('simán csak kedvelt')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByText('Tovább'));
+
+    expect(mockedApi.saveTaste).toHaveBeenCalledWith(['rock', 'techno', 'jazz']);
     expect(await screen.findByText('Ajánlott események')).toBeOnTheScreen();
   });
 });
@@ -268,6 +282,9 @@ describe('signed-in app (F4, F5, F7)', () => {
 
     expect(await screen.findByText('Fekete Olivér')).toBeOnTheScreen();
     expect(screen.getByText('@oli.fekete')).toBeOnTheScreen();
+    for (const genre of ['Techno', 'House', 'Pop']) {
+      expect(screen.getByText(genre)).toBeOnTheScreen();
+    }
     expect(screen.queryByText('Követés')).toBeNull();
     expect(navbarLabels()).toEqual([]);
   });
@@ -288,6 +305,22 @@ describe('signed-in app (F4, F5, F7)', () => {
 
     expect(mockedApi.updateProfile).toHaveBeenCalledWith({ displayName: 'Oli' });
     expect(await screen.findByText('Oli')).toBeOnTheScreen();
+  });
+
+  it('changes the taste order from Settings (D-001/4)', async () => {
+    mockedApi.getTaste.mockResolvedValue(['techno', 'house', 'pop']);
+    mockedApi.saveTaste.mockResolvedValue({ profile: readyProfile });
+    await openFromHome('/settings');
+
+    await fireEvent.press(await screen.findByText('Ízlés módosítása'));
+    expect(await screen.findByLabelText('Techno, 1. hely')).toBeOnTheScreen();
+    expect(navbarLabels()).toEqual([]);
+
+    await fireEvent.press(screen.getByLabelText('Pop, 3. hely'));
+    await fireEvent.press(screen.getByLabelText('Rock'));
+    await fireEvent.press(screen.getByText('Mentés'));
+
+    expect(mockedApi.saveTaste).toHaveBeenCalledWith(['techno', 'house', 'rock']);
   });
 
   it('opens Settings without a navbar and signs out from there (D-004)', async () => {

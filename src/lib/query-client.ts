@@ -11,5 +11,6 @@ export const queryClient = new QueryClient({
 
 export const queryKeys = {
   me: ['me'] as const,
+  taste: ['taste'] as const,
   usernameAvailability: (username: string) => ['username-availability', username] as const,
 };

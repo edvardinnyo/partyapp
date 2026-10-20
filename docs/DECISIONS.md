@@ -67,6 +67,8 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
   2. **A közös műfajlista (22 elem, 2026-10-20):** Techno, House, Drum & bass, Trance, Hardstyle, Bass/dubstep, EDM, Hip-hop/rap, R&B/soul, Pop, Rock, Metal, Punk, Indie/alternatív, Jazz, Funk/disco, Reggae/dancehall, Latin/reggaeton, Klasszikus, Folk/népzene, Mulatós, Retró (80-as, 90-es évek). Ugyanezt a listát használják majd az események is (Q3).
   3. **A Spotify-szinkron egyelőre elmarad** (2026-10-20). A 3. fázisban csak a kézi műfajválasztás és az ízlésprofil számítása készül el; más streaming-szolgáltatás sem kerül be (Q4).
   4. **Hallgatási előzményt nem tárolunk**, csak a kiszámolt ízlésprofilt (műfajok pontszámmal). Ez a későbbi streaming-szinkronra is érvényes.
+  5. **A választás sorrendje számít**, és a képernyő ki is írja: az 1. a „legkedvencebb”, az utolsó a „simán csak kedvelt”; az első három a top 3.
+  6. **A „Streaming-szinkron” képernyő megmarad** a beléptetésben, „Spotify összekötése – hamarosan” jelzéssel és az „Inkább kiválasztom magam” gombbal.
 
 ### D-006 — Profil szerkesztése regisztráció után
 
@@ -211,3 +213,13 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
 - Az API tesztjei hamis adatbázissal és tárhellyel futnak (Hono `app.request`), valódi szerver nélkül.
 - Az app folyamattesztjei hamis Supabase- és API-réteggel futnak: belépés, hibás jelszó, meg nem erősített e-mail, regisztráció kóddal, profil létrehozása, a 18+ nélküli tiltás, a kötelező ízléslépés, a navbar, a profilok, a Beállítások, a kijelentkezés és a nyelvváltás.
 - Összesen 47 teszt; mellette `expo export` iOS-re és Androidra, valamint `expo-doctor`.
+
+### I-011 — Kézi ízlés és ízlésprofil (3. fázis, 2026-10-20)
+
+- **Műfajlista:** `supabase/functions/_shared/contracts/genres.ts` (a sorrend a megjelenítési sorrend), a feliratok az app i18n-fájljaiban (`genres.<azonosító>`). Az adatbázisban `genre` enum, ezt használják majd az események is; új műfajhoz migráció is kell.
+- **Táblák:** `taste_genres` (a választás, `position` 0 = legkedvencebb) és `taste_profiles` (top 3 és az összes műfaj pontszáma). RLS bekapcsolva, szabályok nélkül; mentés egyetlen tranzakcióban.
+- **Algoritmus:** `supabase/functions/_shared/taste/` — tiszta, determinisztikus függvény, egységtesztekkel. A súlyok a `config.ts`-ben (F1). Kézi műfaj: 1.0, a sorrend szerint lineárisan 0.5-ig csökkenve; forrásonként normalizálva; kézi és streaming együtt fele-fele (D-001/5); holtversenynél a műfajlista sorrendje dönt. Egy több műfajú jelzés (pl. előadó) a súlyát egyenlően osztja szét. A streaming-súlyok (PHASE0 7.2) a Spotify-szinkronnal kerülnek be.
+- **API:** `GET /taste` (a választás sorrendben), `PUT /taste` (3–10 egyedi műfaj; kiszámolja a profilt, és első alkalommal lezárja a beléptetés ízléslépését). A profil válasza tartalmazza a top 3 műfajt. A helykitöltő `POST /onboarding/taste` megszűnt.
+- **Tesztfelhasználók:** a migráció azoknál, akik a helykitöltő lépéssel jutottak át, újra megnyitja az ízléslépést.
+- **App:** közös `GenrePicker` a beléptetésben és a Beállítások „Ízlés módosítása” képernyőjén (navbar nélkül). A saját profilon a top 3 műfaj látszik; a lebegő „neuron” animáció a 7. fázisban jön. A válaszokban a műfajok sima szövegként jönnek, így egy régebbi app sem omlik össze, ha később új műfaj kerül be.
+

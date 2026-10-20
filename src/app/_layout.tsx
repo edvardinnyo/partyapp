@@ -65,6 +65,11 @@ function RootNavigator() {
             name="edit-profile"
             options={{ headerShown: true, title: t('profile.edit') }}
           />
+          {/* D-001/4: changing the taste, opened from Settings. */}
+          <Stack.Screen
+            name="edit-taste"
+            options={{ headerShown: true, title: t('taste.editTitle') }}
+          />
           {/* D-004: opened from the own profile, without a navbar, with a back arrow. */}
           <Stack.Screen
             name="settings"

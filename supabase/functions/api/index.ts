@@ -5,13 +5,17 @@ import postgres from 'postgres';
 
 import { createApp } from './app.ts';
 import { createProfileRepository } from './profile-repository.ts';
+import { createTasteRepository } from './taste-repository.ts';
 import { createAccounts, createAvatarStorage } from './supabase-services.ts';
 
 // The connection may go through the transaction pooler, which does not support prepared statements.
 const client = postgres(Deno.env.get('SUPABASE_DB_URL')!, { prepare: false, max: 3 });
 
+const db = drizzle({ client });
+
 const app = createApp({
-  profiles: createProfileRepository(drizzle({ client })),
+  profiles: createProfileRepository(db),
+  tastes: createTasteRepository(db),
   newId: () => crypto.randomUUID(),
   now: () => new Date(),
 });

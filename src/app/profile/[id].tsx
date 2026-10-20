@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { isGenre } from '@shared/contracts/genres';
 import { AppButton } from '@/components/app-button';
 import { AppText } from '@/components/app-text';
 import { Avatar } from '@/components/avatar';
@@ -68,12 +69,19 @@ export default function ProfileScreen() {
         ) : (
           <Avatar uri={null} size={112} />
         )}
+        {/* F1/F4: the top 3 genres; the floating "neuron" animation comes in phase 7. */}
         <View style={styles.genres}>
-          {GENRE_PLACEHOLDERS.map((number) => (
-            <View key={number} style={[styles.genre, { borderColor: colors.accent }]}>
-              <AppText variant="muted">{t('profile.genre', { number })}</AppText>
-            </View>
-          ))}
+          {ownProfile
+            ? ownProfile.topGenres.filter(isGenre).map((genre) => (
+                <View key={genre} style={[styles.genre, { borderColor: colors.accent }]}>
+                  <AppText variant="muted">{t(`genres.${genre}`)}</AppText>
+                </View>
+              ))
+            : GENRE_PLACEHOLDERS.map((number) => (
+                <View key={number} style={[styles.genre, { borderColor: colors.accent }]}>
+                  <AppText variant="muted">{t('profile.genre', { number })}</AppText>
+                </View>
+              ))}
         </View>
         <AppText variant="muted">{t('profile.neuronPlaceholder')}</AppText>
       </View>
@@ -125,6 +133,8 @@ const styles = StyleSheet.create({
   },
   genres: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 8,
   },
   genre: {
