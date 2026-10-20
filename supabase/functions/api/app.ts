@@ -7,6 +7,7 @@ import {
   createProfileInputSchema,
   normalizeUsername,
   type Profile,
+  updateProfileInputSchema,
   usernameSchema,
 } from '../_shared/contracts/profile.ts';
 
@@ -36,12 +37,18 @@ export interface ProfileRepository {
   isUsernameTaken(username: string): Promise<boolean>;
   create(profile: NewProfile): Promise<StoredProfile | 'username_taken' | 'profile_exists'>;
   markTasteCompleted(userId: string, at: Date): Promise<StoredProfile | null>;
+  update(
+    userId: string,
+    changes: { displayName?: string; avatarPath?: string | null },
+    at: Date,
+  ): Promise<StoredProfile | null>;
 }
 
 export interface AvatarStorage {
   createUploadUrl(path: string): Promise<{ path: string; token: string }>;
   exists(path: string): Promise<boolean>;
   createSignedUrl(path: string): Promise<string | null>;
+  remove(path: string): Promise<void>;
   removeAll(userId: string): Promise<void>;
 }
 
@@ -64,6 +71,11 @@ export type ApiBindings = {
 
 function apiError(error: ApiErrorCode) {
   return { error };
+}
+
+/** An uploaded avatar the user may use: in their own folder, and actually there. */
+async function isUsableAvatar(path: string, userId: string, avatars: AvatarStorage) {
+  return path.startsWith(`${userId}/`) && !path.includes('..') && (await avatars.exists(path));
 }
 
 export function createApp({ profiles, newId, now }: ApiDeps) {
@@ -106,11 +118,8 @@ export function createApp({ profiles, newId, now }: ApiDeps) {
     const { displayName, username, avatarPath } = parsed.data;
     const { userId, avatars } = c.env;
 
-    if (avatarPath !== null) {
-      const isOwnFolder = avatarPath.startsWith(`${userId}/`) && !avatarPath.includes('..');
-      if (!isOwnFolder || !(await avatars.exists(avatarPath))) {
-        return c.json(apiError('invalid_avatar'), 400);
-      }
+    if (avatarPath !== null && !(await isUsableAvatar(avatarPath, userId, avatars))) {
+      return c.json(apiError('invalid_avatar'), 400);
     }
 
     const acceptedAt = now();
@@ -127,6 +136,34 @@ export function createApp({ profiles, newId, now }: ApiDeps) {
       return c.json(apiError(created), 409);
     }
     return c.json({ profile: await toProfile(created, avatars) }, 201);
+  });
+
+  // D-006: edit the own profile after sign-up. The username stays fixed (D-004).
+  app.patch('/profile', async (c) => {
+    const parsed = updateProfileInputSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) {
+      return c.json(apiError('invalid_input'), 400);
+    }
+    const { displayName, avatarPath } = parsed.data;
+    const { userId, avatars } = c.env;
+
+    const current = await profiles.findById(userId);
+    if (!current) {
+      return c.json(apiError('profile_missing'), 409);
+    }
+    if (typeof avatarPath === 'string' && !(await isUsableAvatar(avatarPath, userId, avatars))) {
+      return c.json(apiError('invalid_avatar'), 400);
+    }
+
+    const updated = await profiles.update(userId, { displayName, avatarPath }, now());
+    if (!updated) {
+      return c.json(apiError('profile_missing'), 409);
+    }
+    // A replaced or removed picture is deleted right away, so no orphaned files stay behind.
+    if (avatarPath !== undefined && current.avatarPath && current.avatarPath !== avatarPath) {
+      await avatars.remove(current.avatarPath);
+    }
+    return c.json({ profile: await toProfile(updated, avatars) });
   });
 
   // Placeholder for the taste step until phase 3 stores the real taste profile.

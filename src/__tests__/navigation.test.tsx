@@ -30,6 +30,7 @@ jest.mock('@/lib/api', () => ({
     isUsernameAvailable: jest.fn(),
     createAvatarUpload: jest.fn(),
     createProfile: jest.fn(),
+    updateProfile: jest.fn(),
     completeTaste: jest.fn(),
     deleteAccount: jest.fn(),
   },
@@ -269,6 +270,24 @@ describe('signed-in app (F4, F5, F7)', () => {
     expect(screen.getByText('@oli.fekete')).toBeOnTheScreen();
     expect(screen.queryByText('Követés')).toBeNull();
     expect(navbarLabels()).toEqual([]);
+  });
+
+  it('edits the own profile after tapping it, without a navbar (D-006)', async () => {
+    mockedApi.updateProfile.mockResolvedValue({
+      profile: { ...readyProfile, displayName: 'Oli' },
+    });
+    await openFromHome('/profile/me');
+
+    await fireEvent.press(await screen.findByLabelText('Profil szerkesztése'));
+    const nameField = await screen.findByLabelText('Megjelenített név');
+    expect(screen.getByText('A felhasználónév nem módosítható.')).toBeOnTheScreen();
+    expect(navbarLabels()).toEqual([]);
+
+    await fireEvent.changeText(nameField, 'Oli');
+    await fireEvent.press(screen.getByText('Mentés'));
+
+    expect(mockedApi.updateProfile).toHaveBeenCalledWith({ displayName: 'Oli' });
+    expect(await screen.findByText('Oli')).toBeOnTheScreen();
   });
 
   it('opens Settings without a navbar and signs out from there (D-004)', async () => {

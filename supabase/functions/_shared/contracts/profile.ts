@@ -25,6 +25,15 @@ export const createProfileInputSchema = z.object({
 });
 export type CreateProfileInput = z.infer<typeof createProfileInputSchema>;
 
+/** Editing after sign-up (D-006): any of the fields; `avatarPath: null` removes the picture. */
+export const updateProfileInputSchema = z
+  .object({
+    displayName: displayNameSchema.optional(),
+    avatarPath: z.string().min(1).nullable().optional(),
+  })
+  .refine((input) => input.displayName !== undefined || input.avatarPath !== undefined);
+export type UpdateProfileInput = z.infer<typeof updateProfileInputSchema>;
+
 export const profileSchema = z.object({
   id: z.string(),
   username: z.string(),

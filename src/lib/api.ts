@@ -9,6 +9,7 @@ import {
   type CreateProfileInput,
   type MeResponse,
   meResponseSchema,
+  type UpdateProfileInput,
   usernameAvailabilitySchema,
 } from '@shared/contracts/profile';
 import { supabase } from '@/lib/supabase';
@@ -22,7 +23,7 @@ export class ApiError extends Error {
   }
 }
 
-type Method = 'GET' | 'POST' | 'DELETE';
+type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
 /** Calls the `api` Edge Function; supabase-js adds the signed-in user's token. */
 async function call<T>(
@@ -54,6 +55,9 @@ export const api = {
 
   createProfile: (input: CreateProfileInput): Promise<MeResponse> =>
     call('profile', 'POST', meResponseSchema, input),
+
+  updateProfile: (input: UpdateProfileInput): Promise<MeResponse> =>
+    call('profile', 'PATCH', meResponseSchema, input),
 
   completeTaste: (): Promise<MeResponse> => call('onboarding/taste', 'POST', meResponseSchema),
 

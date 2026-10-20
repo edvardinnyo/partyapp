@@ -48,12 +48,22 @@ function createFakes() {
       row.tasteCompletedAt = at;
       return toStored(row);
     },
+    update: async (userId, { displayName, avatarPath }) => {
+      const row = rows.get(userId);
+      if (!row) return null;
+      if (displayName !== undefined) row.displayName = displayName;
+      if (avatarPath !== undefined) row.avatarPath = avatarPath;
+      return toStored(row);
+    },
   };
 
   const avatars: AvatarStorage = {
     createUploadUrl: async (path) => ({ path, token: 'upload-token' }),
     exists: async (path) => files.has(path),
     createSignedUrl: async (path) => `https://storage.test/${path}?signed`,
+    remove: async (path) => {
+      files.delete(path);
+    },
     removeAll: async (userId) => {
       for (const path of [...files]) if (path.startsWith(`${userId}/`)) files.delete(path);
     },
@@ -84,7 +94,13 @@ function setup() {
       headers: { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-  return { ...fakes, request, post };
+  const patch = (path: string, body?: unknown) =>
+    request(path, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  return { ...fakes, request, post, patch };
 }
 
 const validProfile = {
@@ -214,6 +230,65 @@ describe('POST /api/profile/avatar-upload', () => {
     const body = await (await post('/profile/avatar-upload')).json();
 
     expect(body).toEqual({ path: `${USER_ID}/file-1.jpg`, token: 'upload-token' });
+  });
+});
+
+describe('PATCH /api/profile (D-006)', () => {
+  it('needs an existing profile', async () => {
+    const { patch } = setup();
+
+    const response = await patch('/profile', { displayName: 'Oli' });
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: 'profile_missing' });
+  });
+
+  it('changes the display name but never the username', async () => {
+    const { post, patch, rows } = setup();
+    await post('/profile', validProfile);
+
+    const response = await patch('/profile', { displayName: 'Oli', username: 'other.name' });
+
+    expect(response.status).toBe(200);
+    expect(rows.get(USER_ID)).toMatchObject({ displayName: 'Oli', username: 'oli.fekete' });
+  });
+
+  it('replaces the picture and deletes the old file', async () => {
+    const { post, patch, files } = setup();
+    files.add(`${USER_ID}/old.jpg`);
+    files.add(`${USER_ID}/new.jpg`);
+    await post('/profile', { ...validProfile, avatarPath: `${USER_ID}/old.jpg` });
+
+    const body = await (await patch('/profile', { avatarPath: `${USER_ID}/new.jpg` })).json();
+
+    expect(body.profile.avatarUrl).toBe(`https://storage.test/${USER_ID}/new.jpg?signed`);
+    expect([...files]).toEqual([`${USER_ID}/new.jpg`]);
+  });
+
+  it('removes the picture', async () => {
+    const { post, patch, files } = setup();
+    files.add(`${USER_ID}/old.jpg`);
+    await post('/profile', { ...validProfile, avatarPath: `${USER_ID}/old.jpg` });
+
+    const body = await (await patch('/profile', { avatarPath: null })).json();
+
+    expect(body.profile.avatarUrl).toBeNull();
+    expect([...files]).toEqual([]);
+  });
+
+  it('rejects a picture outside the own folder and an empty change', async () => {
+    const { post, patch, files } = setup();
+    files.add(`${OTHER_USER_ID}/file.jpg`);
+    await post('/profile', validProfile);
+
+    const foreign = await patch('/profile', { avatarPath: `${OTHER_USER_ID}/file.jpg` });
+    const empty = await patch('/profile', {});
+    const blankName = await patch('/profile', { displayName: '   ' });
+
+    expect(foreign.status).toBe(400);
+    expect(await foreign.json()).toEqual({ error: 'invalid_avatar' });
+    expect(empty.status).toBe(400);
+    expect(blankName.status).toBe(400);
   });
 });
 
