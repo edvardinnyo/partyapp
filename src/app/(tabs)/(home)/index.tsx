@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/app-text';
+import { Avatar } from '@/components/avatar';
+import { useMyProfile } from '@/features/profile/use-my-profile';
 import { useAppTheme } from '@/theme';
 
 const EVENT_PLACEHOLDERS = [1, 2, 3, 4, 5, 6];
@@ -14,6 +16,7 @@ const EVENT_PLACEHOLDERS = [1, 2, 3, 4, 5, 6];
 export default function HomeScreen() {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
+  const me = useMyProfile();
 
   return (
     <SafeAreaView edges={['top']} style={[styles.root, { backgroundColor: colors.background }]}>
@@ -28,16 +31,8 @@ export default function HomeScreen() {
             <View style={styles.topBar}>
               <View style={styles.topBarSide} />
               <Link href="/profile/me" asChild>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('home.openProfile')}
-                  // Link asChild only accepts a flat style object.
-                  style={StyleSheet.flatten([
-                    styles.avatar,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
-                  ])}
-                >
-                  <Ionicons name="person" size={36} color={colors.textMuted} />
+                <Pressable accessibilityRole="button" accessibilityLabel={t('home.openProfile')}>
+                  <Avatar uri={me.data?.profile?.avatarUrl} size={72} />
                 </Pressable>
               </Link>
               <View style={[styles.topBarSide, styles.topBarRight]}>
@@ -92,14 +87,6 @@ const styles = StyleSheet.create({
   },
   topBarRight: {
     alignItems: 'flex-end',
-  },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   gridRow: {
     gap: 12,

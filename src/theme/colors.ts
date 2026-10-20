@@ -8,6 +8,8 @@ export type ThemeColors = {
   border: string;
   accent: string;
   onAccent: string;
+  danger: string;
+  success: string;
 };
 
 /** Placeholder palette until the final branding exists (Q22). */
@@ -20,6 +22,8 @@ export const colors: Record<ColorScheme, ThemeColors> = {
     border: '#DDDAE8',
     accent: '#6B4EFF',
     onAccent: '#FFFFFF',
+    danger: '#C62828',
+    success: '#2E7D32',
   },
   dark: {
     background: '#0D0B14',
@@ -29,5 +33,7 @@ export const colors: Record<ColorScheme, ThemeColors> = {
     border: '#2E2A3D',
     accent: '#9C8CFF',
     onAccent: '#0D0B14',
+    danger: '#FF6B6B',
+    success: '#66BB6A',
   },
 };

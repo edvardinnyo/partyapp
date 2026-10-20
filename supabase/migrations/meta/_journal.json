@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1792356212139,
+      "tag": "20261018204332_profiles",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792356222519,
+      "tag": "20261018204342_avatars_bucket",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792356225056,
+      "tag": "20261018204345_delete_unconfirmed_users",
+      "breakpoints": true
+    }
+  ]
+}
