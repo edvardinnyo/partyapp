@@ -24,6 +24,15 @@ export function createTasteRepository(db: PostgresJsDatabase): TasteRepository {
       return row?.topGenres ?? [];
     },
 
+    async getResult(userId) {
+      const [row] = await db
+        .select({ topGenres: tasteProfiles.topGenres, scores: tasteProfiles.genreScores })
+        .from(tasteProfiles)
+        .where(eq(tasteProfiles.userId, userId))
+        .limit(1);
+      return row ?? null;
+    },
+
     async save(userId, genres, taste, at) {
       await db.transaction(async (tx) => {
         await tx.delete(tasteGenres).where(eq(tasteGenres.userId, userId));

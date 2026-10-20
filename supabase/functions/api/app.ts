@@ -10,7 +10,22 @@ import {
   updateProfileInputSchema,
   usernameSchema,
 } from '../_shared/contracts/profile.ts';
+import {
+  type EventDetail,
+  eventIdSchema,
+  type EventSummary,
+  type EventVenue,
+  nearbyEventsInputSchema,
+} from '../_shared/contracts/events.ts';
 import { type Genre, tasteInputSchema } from '../_shared/contracts/genres.ts';
+import {
+  DEFAULT_USER_SETTINGS,
+  MAX_RADIUS_KM,
+  type UserSettings,
+  userSettingsSchema,
+} from '../_shared/contracts/settings.ts';
+import { shownEventWindow } from '../_shared/events/lifecycle.ts';
+import { type RecommendationTaste, scoreEvent } from '../_shared/recommendation/score-event.ts';
 import {
   computeTaste,
   manualGenreSignals,
@@ -19,6 +34,9 @@ import {
 
 /** Version of the privacy notice users accept at sign-up. Bump it when the text changes. */
 export const PRIVACY_POLICY_VERSION = 'draft-2026-10';
+
+/** A safety limit for one map's worth of events (the nearest ones are kept). */
+export const NEARBY_EVENTS_LIMIT = 500;
 
 export type StoredProfile = {
   id: string;
@@ -53,8 +71,44 @@ export interface TasteRepository {
   /** The manual choice, favourite first. */
   getChosenGenres(userId: string): Promise<Genre[]>;
   getTopGenres(userId: string): Promise<Genre[]>;
+  /** The computed taste profile, or null before the taste step. */
+  getResult(userId: string): Promise<TasteResult | null>;
   /** Replaces the choice and the profile, and marks the taste step as done. */
   save(userId: string, genres: readonly Genre[], taste: TasteResult, at: Date): Promise<void>;
+}
+
+export interface SettingsRepository {
+  /** Null until the user changes a setting for the first time. */
+  find(userId: string): Promise<UserSettings | null>;
+  save(userId: string, settings: UserSettings, at: Date): Promise<void>;
+}
+
+export type StoredEvent = {
+  id: string;
+  title: string;
+  kind: string;
+  startsAt: Date;
+  endsAt: Date;
+  genres: string[];
+  performers: string[];
+  venue: EventVenue;
+};
+
+export type NearbyEventsQuery = {
+  lat: number;
+  lng: number;
+  radiusKm: number;
+  /** Live or upcoming: ends after this… */
+  endsAfter: Date;
+  /** …and starts before this. */
+  startsBefore: Date;
+  limit: number;
+};
+
+export interface EventRepository {
+  /** The events in the time range within `radiusKm` of the point, nearest first. */
+  findNearby(query: NearbyEventsQuery): Promise<(StoredEvent & { distanceKm: number })[]>;
+  findById(id: string): Promise<StoredEvent | null>;
 }
 
 export interface AvatarStorage {
@@ -72,6 +126,8 @@ export interface Accounts {
 export type ApiDeps = {
   profiles: ProfileRepository;
   tastes: TasteRepository;
+  settings: SettingsRepository;
+  events: EventRepository;
   newId: () => string;
   now: () => Date;
 };
@@ -92,7 +148,19 @@ async function isUsableAvatar(path: string, userId: string, avatars: AvatarStora
   return path.startsWith(`${userId}/`) && !path.includes('..') && (await avatars.exists(path));
 }
 
-export function createApp({ profiles, tastes, newId, now }: ApiDeps) {
+function toEventBase(event: StoredEvent) {
+  return {
+    id: event.id,
+    title: event.title,
+    kind: event.kind,
+    startsAt: event.startsAt.toISOString(),
+    endsAt: event.endsAt.toISOString(),
+    venue: event.venue,
+    genres: event.genres,
+  };
+}
+
+export function createApp({ profiles, tastes, settings, events, newId, now }: ApiDeps) {
   const app = new Hono<{ Bindings: ApiBindings }>().basePath('/api');
 
   async function toProfile(stored: StoredProfile, avatars: AvatarStorage): Promise<Profile> {
@@ -202,6 +270,63 @@ export function createApp({ profiles, tastes, newId, now }: ApiDeps) {
 
     const updated = await profiles.findById(userId);
     return c.json({ profile: updated ? await toProfile(updated, avatars) : null });
+  });
+
+  app.get('/settings', async (c) => {
+    return c.json({ settings: (await settings.find(c.env.userId)) ?? DEFAULT_USER_SETTINGS });
+  });
+
+  // Q6: the search radius, set with the slider on the map.
+  app.put('/settings', async (c) => {
+    const parsed = userSettingsSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) {
+      return c.json(apiError('invalid_input'), 400);
+    }
+    if (!(await profiles.findById(c.env.userId))) {
+      return c.json(apiError('profile_missing'), 409);
+    }
+    await settings.save(c.env.userId, parsed.data, now());
+    return c.json({ settings: parsed.data });
+  });
+
+  // F1, F5: every live or upcoming event within the slider's maximum, as the map shows all of
+  // them; each with its distance and taste score. The app picks the recommended ones with the
+  // user's radius, so moving the slider needs no new request. POST keeps the position out of URLs.
+  app.post('/events/nearby', async (c) => {
+    const parsed = nearbyEventsInputSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) {
+      return c.json(apiError('invalid_input'), 400);
+    }
+    const tasteResult = await tastes.getResult(c.env.userId);
+    const taste: RecommendationTaste = {
+      topGenres: tasteResult?.topGenres ?? [],
+      genreScores: tasteResult?.scores ?? [],
+      favouriteArtists: [],
+    };
+
+    const found = await events.findNearby({
+      ...parsed.data,
+      ...shownEventWindow(now()),
+      radiusKm: MAX_RADIUS_KM,
+      limit: NEARBY_EVENTS_LIMIT,
+    });
+    const summaries: EventSummary[] = found.map(({ distanceKm, ...event }) => ({
+      ...toEventBase(event),
+      distanceKm: Math.round(distanceKm * 1000) / 1000,
+      score: scoreEvent(event, taste),
+    }));
+    return c.json({ events: summaries });
+  });
+
+  // Q8: the event page.
+  app.get('/events/:id', async (c) => {
+    const id = eventIdSchema.safeParse(c.req.param('id'));
+    const event = id.success ? await events.findById(id.data) : null;
+    if (!event) {
+      return c.json(apiError('not_found'), 404);
+    }
+    const detail: EventDetail = { ...toEventBase(event), performers: event.performers };
+    return c.json({ event: detail });
   });
 
   // D-004: immediate and final. The profile row goes with the auth user (ON DELETE CASCADE).
