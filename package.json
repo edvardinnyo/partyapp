@@ -16,7 +16,8 @@
     "test:watch": "jest --watchAll",
     "db:generate": "drizzle-kit generate",
     "db:push": "supabase db push",
-    "functions:deploy": "supabase functions deploy api --use-api"
+    "functions:deploy": "supabase functions deploy api --use-api",
+    "events:import": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/import-events.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
