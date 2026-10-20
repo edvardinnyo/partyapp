@@ -78,6 +78,18 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
 - A lecserélt vagy eltávolított profilkép azonnal törlődik a tárhelyről.
 - A 7. fázis (profil) előtt, külön kérésre készült el.
 
+### D-007 — Események, ajánlás, Home-rács és térkép (4. fázis)
+
+- **Dátum:** 2026-10-20
+- **Érintett:** F1, F5, Q3, Q7, Q8, Q19, P-01, P-03
+- **Döntések:**
+  1. **Eseményforrás (Q3, P-03):** egyelőre a csapat tölti fel az eseményeket táblázatból (CSV), **Budapesttel** indulunk. A rendszer úgy épül, hogy később a partnercégek (jegyértékesítők) adatfolyamára **csak forrást kelljen váltani**: minden forrás ugyanabba az egységes formába alakítja az eseményeit, és ugyanazon az úton kerülnek az adatbázisba.
+  2. **„Live” megjelenítés:** mindig a friss, éppen zajló és közelgő események látszanak; a Home és a térkép automatikusan frissül, és egy új vagy módosított esemény azonnal megjelenik.
+  3. **Home-rács (Q7):** az ajánlott zajló és közelgő események, egyezés szerint rendezve, egyenlő egyezésnél a korábbi kezdés előre. **Kb. minden 6. esemény után egy teljes szélességű hirdetési banner**; egyelőre helykitöltő, a hirdetések forrása később külön döntés.
+  4. **Eseményoldal (Q8):** helyszín, időpont, műfajok, fellépők, „Megnyitás a térképen”, valamint egy **„Jegyvásárlás”** gomb. Ez egyelőre „Hamarosan elérhető” üzenetet ad; a partnerségek után a partner jegyoldalára visz.
+  5. **Barátok a térképen (Q19):** igen, a javaslat szerint, **a 7. fázisban** (követési rendszerrel): önkéntes bekapcsolás, csak kölcsönös követők, hely szintű pontosság, csak nyitott appnál frissül, pár óra után eltűnik, előzmény nélkül. A 4. fázis térképe úgy készül, hogy ez utólag beköthető legyen.
+  6. **Térkép (P-01):** a közeli eseményjelölők számozott csoportba vonódnak.
+
 ---
 
 ## Elutasított javaslatok
@@ -101,6 +113,10 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
 - **Megválaszolva (2026-10-13):** **Supabase**, EU (Frankfurt) régióval.
 - **Lekérdezési réteg:** **Drizzle ORM**, egy Supabase Edge Functionben futó API-ban (`PHASE0.md`, 2.1 fejezet). Az app az adatokat ezen az API-n keresztül éri el; közvetlenül csak a belépéshez (Auth), az élő üzenetek fogadásához (Realtime) és a képfeltöltéshez (Storage) kapcsolódik a Supabase-hez.
 
+### Q3 — Esemény- és helyszínadatok forrása
+
+- **Megválaszolva (2026-10-20):** D-007/1. Egyelőre a csapat tölti fel az eseményeket táblázatból (CSV), **Budapesttel** indulunk; később a partnercégek (jegyértékesítők) adatfolyama jön, úgy, hogy csak a forrást kelljen váltani. Az események a közös műfajlistából (D-005/2) kapják a műfajaikat, így közvetlenül összevethetők a felhasználók ízlésével.
+
 ### Q5 — Ízlés-algoritmus (részben)
 
 - **Megválaszolva (2026-10-06):** Az előadók is számítanak, és közvetlenül befolyásolják az eseményajánlást (pl. a kedvenc előadó koncertje).
@@ -111,6 +127,18 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
 - **Megválaszolva (2026-10-06):** A keresési távolságot a felhasználó a **térképen egy csúszkával (slider)** állítja be (új felületi elem, kifejezetten jóváhagyva). A távolság a felhasználó aktuális pozíciójától számít, **legfeljebb 200 km**.
 - **Csúszka értékei:** alapérték **25 km**, minimum **1 km**, maximum **200 km**, lépésköz **1 km**.
 - A beállított távolság minden ajánlásra érvényes (Home rács és térkép is), az F1 szerint.
+
+### Q7 — A Home-rács tartalma
+
+- **Megválaszolva (2026-10-20):** D-007/3. Az ajánlott éppen zajló és közelgő események, egyezés szerint, egyenlő egyezésnél a korábbi kezdés előre; kb. minden 6. esemény után hirdetési banner.
+
+### Q8 — Eseményre koppintás
+
+- **Megválaszolva (2026-10-20):** D-007/4. Eseményoldal: helyszín, időpont, műfajok, fellépők, „Megnyitás a térképen” és „Jegyvásárlás” gomb (egyelőre „Hamarosan elérhető”).
+
+### Q19 — Barátok a térképen
+
+- **Megválaszolva (2026-10-20):** D-007/5. Igen, a 7. fázisban: önkéntes, csak kölcsönös követők, hely szintű pontosság, csak nyitott appnál frissül, pár óra után eltűnik, előzmény nélkül. Háttér-helymeghatározás ehhez sem kell.
 
 ### Q21 — Navbar
 
@@ -156,7 +184,7 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
 - A profil (`profile/[id]`) a fülek fölött van, ezért ott nincs navbar (F4, F7). A saját profil azonosítója `me`.
 - A Home a középső fül, mégis az a kezdőképernyő: ezt a `Tabs` `initialRouteName` beállítása biztosítja (F5, F6).
 - Belépés: Belépés → Home; Regisztráció → Streaming-szinkron (→ kézi ízlésválasztás) → Home.
-- Az eseményrácsban a koppintás még nem csinál semmit (Q8), a lezárt események menüpontja még nincs a navigációban (Q13).
+- Az eseményrácsban a koppintás még nem csinál semmit (Q8; a 4. fázis óta az eseményoldalt nyitja meg, I-012), a lezárt események menüpontja még nincs a navigációban (Q13).
 
 ### I-004 — Helykitöltő munkamenet
 
@@ -224,3 +252,38 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
 - **Tesztfelhasználók:** a migráció azoknál, akik a helykitöltő lépéssel jutottak át, újra megnyitja az ízléslépést.
 - **App:** közös `GenrePicker` a beléptetésben és a Beállítások „Ízlés módosítása” képernyőjén (navbar nélkül). A saját profilon a top 3 műfaj látszik; a lebegő „neuron” animáció a 7. fázisban jön. A válaszokban a műfajok sima szövegként jönnek, így egy régebbi app sem omlik össze, ha később új műfaj kerül be.
 
+
+### I-012 — Események, ajánlás, Home-rács és térkép (4. fázis, 2026-10-21)
+
+- **Adatmodell:** `venues` (forrás, forráson belüli azonosító, név, cím, koordináták, és belőlük számolt PostGIS-pont térbeli indexszel), `events` (forrás és azonosító, helyszín, cím, típus, kezdés, zárás, műfajok a közös `genre` listából, fellépők, a partner jegyoldalának címe) és `user_settings` (keresési távolság, 1–200 km, a szerveren, így minden eszközön ugyanaz). RLS bekapcsolva, szabályok nélkül.
+  - A típus (klub, bár, koncert, fesztivál) **az eseménynél** van, nem a helyszínnél, mint a CLAUDE.md 6. fejezetének vázlatában: ugyanaz a hely egyik este koncertet, másik este klubestet tarthat. A felületen egyelőre nem jelenik meg.
+  - Az állapotot (közelgő, zajló, lezárt) nem tároljuk, mindig az időpontokból számolódik.
+- **Egységes eseményforrás (D-007/1):** minden forrás ugyanabba a formába alakítja az eseményeit (`ImportedEvent`, `supabase/functions/_shared/contracts/events.ts`), és egyetlen adatbázis-függvény írja be őket (`public.import_events`).
+  - A sorokat a (forrás, külső azonosító) pár azonosítja: újratöltéskor frissülnek, nem duplikálódnak, a változatlan sorokhoz nem nyúl.
+  - A `--prune` a forrás azon, még le nem zárult eseményeit törli, amelyek hiányoznak a fájlból (pl. lemondott esemény). A múltbeli események megmaradnak a lezárt események részhez (F3).
+  - Egy partner adatfolyamához csak egy új átalakító kell (később pl. egy ütemezett Edge Functionben); az adatbázis oldala változatlan. A függvényt az appok nem hívhatják.
+- **CSV-import:** `npm run events:import -- <fájl.csv>`, a `--dry-run`, `--prune` és `--source=` kapcsolókkal. A leírás a README-ben van.
+  - Az időpontok budapesti helyi idő szerint értendők (a nyári és a téli időszámítást is kezeli). A magyar Excel formátumát is elfogadja: pontosvessző, tizedesvessző, `2026. 10. 24. 22:00`.
+  - Ha bármi hibás, semmit nem tölt fel, és soronként kiírja a hibákat. A Supabase CLI-n keresztül fut, adatbázis-jelszó nem kell hozzá.
+  - **Mintaadat:** `data/events/budapest-sample.csv`, 42 kitalált „Minta” esemény 16 kitalált helyszínen Budapesten és környékén (2026. október 16. – november 9.). Ezek külön forrásként (`sample`) vannak az adatbázisban, így a valódi adatoktól függetlenül törölhetők.
+- **Élő frissítés (D-007/2):** az `events` és a `venues` tábla minden változásakor egy trigger üzenetet küld a nyilvános `events` Realtime-csatornán. Az üzenet nem tartalmaz eseményadatot; az app ekkor újratölti az eseményeket (egy import több üzenetét egy frissítésbe vonja össze).
+  - Ezen felül az app 5 percenként, az appba visszatéréskor és lefelé húzásra is frissít.
+  - A „Most zajlik” jelzés és a lezárult események eltűnése 30 másodpercenként, letöltés nélkül frissül.
+  - A Supabase az üzenetek tárolóját csak akkor hozza létre, amikor egy kliens csatlakozik. Ha senki nincs csatlakozva, az üzenet elvész, de akkor nincs is, akinek szólna.
+- **API:** `GET` és `PUT /settings` (keresési távolság), `POST /events/nearby`, `GET /events/:id`.
+  - A pozíció a kérés törzsében megy, nem a címben, így nem kerül hozzáférési naplóba.
+  - A közeli események válasza: a zajló és a 7 napon belül kezdődő események a pozíciótól legfeljebb **200 km-re** (a térkép az összeset mutatja), mindegyik a távolságával és az ízlés-pontszámával, legfeljebb 500 darab, a legközelebbiek.
+- **Ajánlás (F1):** pontszám = az esemény műfajainak pontszáma a felhasználó top 3 műfajában + a kedvenc előadó bónusza (D-001/7; előadók még nincsenek). Az esemény akkor ajánlott, ha a pontszáma nagyobb 0-nál, és a távolsága legfeljebb a beállított távolság. A súlyok egy helyen vannak: `supabase/functions/_shared/recommendation/score-event.ts`. Mivel a pontszámot a szerver adja, a csúszka mozgatásakor az app letöltés nélkül, azonnal átszínezi a térképet.
+- **Helymeghatározás:** csak előtérben; háttérbeli helyadat-engedély nincs az app engedélyei között.
+  - Az engedélyt az app a **Home első megnyitásakor** kéri, mert az ajánlás a pozíciótól függ (F1).
+  - A pozíció csak a memóriában van, kb. 100 méterre kerekítve kerül az API-hoz, és sehol nem tárolódik.
+  - Megtagadott engedélynél, vagy ha nincs helyadat, Budapest központjától számolunk, és ezt az app kiírja (F5).
+- **Térkép:** `react-native-maps` (iOS-en Apple Maps, Androidon Google Maps).
+  - A közeli jelölők a `supercluster` könyvtárral vonódnak számozott csoportba (P-01). A csoport ajánlott színű, ha van benne ajánlott esemény.
+  - Az ugyanazon a helyszínen lévő események kb. 20 méterre szétterítve jelennek meg, hogy mindegyikre rá lehessen koppintani.
+  - Koppintás: csoportra ránagyít, eseményre megnyitja az eseményoldalt.
+  - A felúszó kártyák nem takarják a térkép logóját és jogi linkjét (az Apple és a Google feltétele).
+  - Androidos buildhez Google Maps-kulcs kell (`GOOGLE_MAPS_ANDROID_API_KEY`, csak a build idején, EAS-környezeti változóként); az Expo Go-hoz nem kell.
+- **Home-rács:** soronként 2 esemény; 6 esemény után egy teljes szélességű „Hirdetés” helykitöltő, de csak események között (D-007/3). Ha nincs ajánlott esemény, egy rövid, tényszerű mondat jelenik meg.
+- **Eseményoldal (Q8):** a Home fülön belül van, így a navbar látszik (F7). Tartalma: cím, „Most zajlik” jelzés, időpont, helyszín és cím, műfajok, fellépők, „Jegyvásárlás” („Hamarosan elérhető”) és „Megnyitás a térképen” (a térkép a helyszínre nagyít).
+- **Tesztek:** egységtesztek a CSV-feldolgozásra, az időzóna-átváltásra, az ajánlási pontszámra, az életciklusra, a rács felosztására, a csoportosításra és a dátumformázásra; API-tesztek az új útvonalakra; folyamattesztek (rács hirdetéssel, eseményoldal jegygombbal, működés helyengedély nélkül, a csúszka). Összesen 118 teszt. A migrációkat egy visszagörgetett tranzakcióban a valódi adatbázison is kipróbáltam, mielőtt felkerültek.
