@@ -12,6 +12,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { MAX_RADIUS_KM } from '@shared/contracts/settings';
 import { compareRecommended } from '@shared/recommendation/score-event';
 import { AppButton } from '@/components/app-button';
 import { AppText } from '@/components/app-text';
@@ -42,6 +43,12 @@ export default function HomeScreen() {
       ),
     [nearby.events],
   );
+
+  // P-02: say that nothing is recommended, and suggest a larger distance while the slider allows.
+  const emptyText =
+    nearby.radiusKm < MAX_RADIUS_KM
+      ? `${t('home.noRecommendations')} ${t('home.increaseRadius')}`
+      : t('home.noRecommendations');
 
   async function refresh() {
     // Nothing to fetch until we know where distances are measured from.
@@ -106,7 +113,7 @@ export default function HomeScreen() {
             <ActivityIndicator style={styles.status} color={colors.accent} />
           ) : (
             <AppText variant="muted" style={styles.status}>
-              {t('home.noRecommendations')}
+              {emptyText}
             </AppText>
           )
         }

@@ -155,6 +155,7 @@ export const en: Translation = {
     openMap: 'Open map',
     recommendedEvents: 'Recommended events',
     noRecommendations: 'There are no recommended events within your distance right now.',
+    increaseRadius: 'Increase the distance on the map.',
     ad: 'Advertisement',
   },
   events: {
@@ -183,6 +184,7 @@ export const en: Translation = {
     title: 'Map',
     radius: 'Distance: {{km}} km',
     radiusLabel: 'Search distance',
+    backToMyLocation: 'Back to my location',
     eventMarker: '{{title}}, {{venue}}',
     recommendedMarker: '{{title}}, {{venue}}, recommended',
     cluster: '{{count}} events',

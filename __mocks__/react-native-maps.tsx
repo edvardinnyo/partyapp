@@ -17,4 +17,9 @@ export function Marker({ children, onPress, accessibilityLabel }: MarkerProps) {
   );
 }
 
+/** Tests read its `center` and `radius` props. */
+export function Circle(props: Record<string, unknown>) {
+  return <View testID="map-circle" {...props} />;
+}
+
 export default MapView;

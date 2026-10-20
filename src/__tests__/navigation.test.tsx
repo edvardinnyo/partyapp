@@ -120,6 +120,13 @@ beforeEach(async () => {
   queryClient.clear();
   useAuthStore.setState({ status: 'loading', userId: null, isRecoveringPassword: false });
   useLocationStore.setState({ status: 'checking', position: null });
+  // clearAllMocks keeps answers set by a test, so the default (location allowed) is set again.
+  jest.mocked(Location.getForegroundPermissionsAsync).mockResolvedValue({
+    status: Location.PermissionStatus.GRANTED,
+    granted: true,
+    canAskAgain: true,
+    expires: 'never',
+  });
   mockedApi.getSettings.mockResolvedValue({ searchRadiusKm: 25 });
   mockedApi.getNearbyEvents.mockResolvedValue([]);
   // The test phone's language is English; the assertions use the Hungarian UI.
@@ -373,7 +380,30 @@ describe('signed-in app (F4, F5, F7)', () => {
     expect(await screen.findByText(/^Nem ismerjük a helyzeted/)).toBeOnTheScreen();
     expect(mockedApi.getNearbyEvents).toHaveBeenCalledWith(LAUNCH_CITY_CENTER);
     expect(Location.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
-    expect(await screen.findByText(/nincs neked ajánlott esemény/)).toBeOnTheScreen();
+    expect(
+      await screen.findByText(
+        'A beállított távolságon belül most nincs neked ajánlott esemény. Növeld a távolságot a térképen.',
+      ),
+    ).toBeOnTheScreen();
+
+    // The map measures from the same centre, and there is no own position to go back to.
+    await act(() => router.push('/map'));
+    expect(await screen.findByText('Távolság: 25 km')).toBeOnTheScreen();
+    expect(screen.getByTestId('map-circle').props.center).toEqual({
+      latitude: LAUNCH_CITY_CENTER.lat,
+      longitude: LAUNCH_CITY_CENTER.lng,
+    });
+    expect(screen.queryByLabelText('Vissza a pozíciómhoz')).toBeNull();
+  });
+
+  it('suggests a larger distance only while the slider can still grow (P-02)', async () => {
+    mockedApi.getSettings.mockResolvedValue({ searchRadiusKm: 200 });
+    await renderRouter(APP_DIR);
+
+    expect(
+      await screen.findByText('A beállított távolságon belül most nincs neked ajánlott esemény.'),
+    ).toBeOnTheScreen();
+    expect(screen.queryByText(/Növeld a távolságot/)).toBeNull();
   });
 
   it('saves the distance from the map’s slider, and the grid follows it (Q6)', async () => {
@@ -382,9 +412,14 @@ describe('signed-in app (F4, F5, F7)', () => {
     await openFromHome('/map');
 
     expect(await screen.findByLabelText(/^Minta esemény far, Minta Klub$/)).toBeOnTheScreen();
+    expect(screen.getByLabelText('Vissza a pozíciómhoz')).toBeOnTheScreen();
+    expect(screen.getByTestId('map-circle').props.radius).toBe(25_000);
+
     const slider = screen.getByLabelText('Keresési távolság');
     await fireEvent(slider, 'valueChange', 60);
     expect(screen.getByText('Távolság: 60 km')).toBeOnTheScreen();
+    // The circle follows the slider while it moves.
+    expect(screen.getByTestId('map-circle').props.radius).toBe(60_000);
     await fireEvent(slider, 'slidingComplete', 60);
 
     expect(mockedApi.saveSettings).toHaveBeenCalledWith({ searchRadiusKm: 60 });

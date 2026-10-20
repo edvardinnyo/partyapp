@@ -1,8 +1,9 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import Slider from '@react-native-community/slider';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import MapView, { type Region } from 'react-native-maps';
+import { Pressable, StyleSheet, View } from 'react-native';
+import MapView, { Circle, type Region } from 'react-native-maps';
 import { useTranslation } from 'react-i18next';
 
 import { MAX_RADIUS_KM, MIN_RADIUS_KM } from '@shared/contracts/settings';
@@ -26,6 +27,7 @@ import { useAppTheme } from '@/theme';
 const FOCUS_RADIUS_KM = 0.5;
 /** Space between the floating cards and the screen edges. */
 const CARD_MARGIN = 12;
+const LOCATE_BUTTON_SIZE = 44;
 
 function parseFocus(lat?: string, lng?: string): Position | null {
   const position = { lat: Number(lat), lng: Number(lng) };
@@ -89,6 +91,15 @@ export default function MapScreen() {
   );
   const items = useMemo(() => mapItems(clusterIndex, region), [clusterIndex, region]);
 
+  // Approved proposal (2026-10-21): back to the own position, on both platforms alike. Without a
+  // known position there is nothing to go back to.
+  const canLocate = nearby.origin !== null && !nearby.isApproximate;
+  function showMyLocation() {
+    if (nearby.origin) {
+      mapRef.current?.animateToRegion(regionAround(nearby.origin, draftRadiusKm), 400);
+    }
+  }
+
   const openEvent = useCallback((id: string) => router.push(`/event/${id}`), []);
   const zoomInto = useCallback(
     (cluster: { id: number; lat: number; lng: number }) =>
@@ -106,14 +117,26 @@ export default function MapScreen() {
         mapPadding={{
           top: nearby.isApproximate ? noticeHeight + CARD_MARGIN : 0,
           right: 0,
-          bottom: panelHeight + CARD_MARGIN,
+          bottom: panelHeight + CARD_MARGIN + (canLocate ? LOCATE_BUTTON_SIZE + CARD_MARGIN : 0),
           left: 0,
         }}
         showsUserLocation={locationStatus === 'granted'}
+        // The platforms' own buttons differ (Android only); ours below is the same on both.
         showsMyLocationButton={false}
         toolbarEnabled={false}
         userInterfaceStyle={scheme}
       >
+        {/* Approved proposal (2026-10-21): the search radius as a circle, following the slider. */}
+        {nearby.origin ? (
+          <Circle
+            center={{ latitude: nearby.origin.lat, longitude: nearby.origin.lng }}
+            radius={draftRadiusKm * 1000}
+            strokeColor={colors.accent}
+            strokeWidth={2}
+            fillColor={`${colors.accent}1A`}
+            zIndex={0}
+          />
+        ) : null}
         {items.map((item) => {
           if (item.kind === 'cluster') {
             return (
@@ -152,6 +175,25 @@ export default function MapScreen() {
         >
           <AppText variant="muted">{t('location.approximate')}</AppText>
         </View>
+      ) : null}
+
+      {canLocate ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('map.backToMyLocation')}
+          hitSlop={8}
+          onPress={showMyLocation}
+          style={({ pressed }) => [
+            styles.locateButton,
+            {
+              bottom: panelHeight + 2 * CARD_MARGIN,
+              backgroundColor: colors.background,
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}
+        >
+          <Ionicons name="locate" size={22} color={colors.accent} />
+        </Pressable>
       ) : null}
 
       <View
@@ -210,5 +252,19 @@ const styles = StyleSheet.create({
   panel: {
     bottom: CARD_MARGIN,
     gap: 4,
+  },
+  locateButton: {
+    position: 'absolute',
+    right: CARD_MARGIN,
+    width: LOCATE_BUTTON_SIZE,
+    height: LOCATE_BUTTON_SIZE,
+    borderRadius: LOCATE_BUTTON_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
 });

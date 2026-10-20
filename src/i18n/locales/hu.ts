@@ -152,6 +152,7 @@ export const hu = {
     openMap: 'Térkép megnyitása',
     recommendedEvents: 'Ajánlott események',
     noRecommendations: 'A beállított távolságon belül most nincs neked ajánlott esemény.',
+    increaseRadius: 'Növeld a távolságot a térképen.',
     ad: 'Hirdetés',
   },
   events: {
@@ -180,6 +181,7 @@ export const hu = {
     title: 'Térkép',
     radius: 'Távolság: {{km}} km',
     radiusLabel: 'Keresési távolság',
+    backToMyLocation: 'Vissza a pozíciómhoz',
     eventMarker: '{{title}}, {{venue}}',
     recommendedMarker: '{{title}}, {{venue}}, ajánlott',
     cluster: '{{count}} esemény',
