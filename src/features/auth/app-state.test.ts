@@ -8,6 +8,7 @@ const profile: Profile = {
   displayName: 'Oli',
   avatarUrl: null,
   tasteCompleted: true,
+  topGenres: ['techno', 'house', 'pop'],
 };
 
 const signedIn = {

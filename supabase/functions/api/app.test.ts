@@ -10,7 +10,9 @@ import {
   PRIVACY_POLICY_VERSION,
   type ProfileRepository,
   type StoredProfile,
+  type TasteRepository,
 } from './app.ts';
+import type { Genre } from '../_shared/contracts/genres.ts';
 
 const USER_ID = '7b6f1d2e-0000-4000-8000-000000000001';
 const OTHER_USER_ID = '7b6f1d2e-0000-4000-8000-000000000002';
@@ -42,18 +44,25 @@ function createFakes() {
       rows.set(profile.id, row);
       return toStored(row);
     },
-    markTasteCompleted: async (userId, at) => {
-      const row = rows.get(userId);
-      if (!row) return null;
-      row.tasteCompletedAt = at;
-      return toStored(row);
-    },
     update: async (userId, { displayName, avatarPath }) => {
       const row = rows.get(userId);
       if (!row) return null;
       if (displayName !== undefined) row.displayName = displayName;
       if (avatarPath !== undefined) row.avatarPath = avatarPath;
       return toStored(row);
+    },
+  };
+
+  const chosenGenres = new Map<string, Genre[]>();
+  const topGenres = new Map<string, Genre[]>();
+  const tastes: TasteRepository = {
+    getChosenGenres: async (userId) => chosenGenres.get(userId) ?? [],
+    getTopGenres: async (userId) => topGenres.get(userId) ?? [],
+    save: async (userId, genres, taste, at) => {
+      chosenGenres.set(userId, [...genres]);
+      topGenres.set(userId, taste.topGenres);
+      const row = rows.get(userId);
+      if (row && !row.tasteCompletedAt) row.tasteCompletedAt = at;
     },
   };
 
@@ -76,12 +85,17 @@ function createFakes() {
     },
   };
 
-  return { rows, files, deletedUsers, profiles, avatars, accounts };
+  return { rows, files, deletedUsers, profiles, tastes, avatars, accounts };
 }
 
 function setup() {
   const fakes = createFakes();
-  const app = createApp({ profiles: fakes.profiles, newId: () => 'file-1', now: () => NOW });
+  const app = createApp({
+    profiles: fakes.profiles,
+    tastes: fakes.tastes,
+    newId: () => 'file-1',
+    now: () => NOW,
+  });
   const bindings: ApiBindings = {
     userId: USER_ID,
     avatars: fakes.avatars,
@@ -100,7 +114,13 @@ function setup() {
       headers: { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-  return { ...fakes, request, post, patch };
+  const put = (path: string, body?: unknown) =>
+    request(path, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  return { ...fakes, request, post, patch, put };
 }
 
 const validProfile = {
@@ -134,6 +154,7 @@ describe('GET /api/me', () => {
       displayName: 'Fekete Olivér',
       avatarUrl: `https://storage.test/${USER_ID}/file-1.jpg?signed`,
       tasteCompleted: false,
+      topGenres: [],
     });
   });
 });
@@ -292,23 +313,66 @@ describe('PATCH /api/profile (D-006)', () => {
   });
 });
 
-describe('POST /api/onboarding/taste', () => {
+describe('PUT /api/taste (D-001, D-005)', () => {
   it('needs a profile first', async () => {
-    const { post } = setup();
+    const { put } = setup();
 
-    const response = await post('/onboarding/taste');
+    const response = await put('/taste', { genres: ['rock', 'techno', 'jazz'] });
 
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({ error: 'profile_missing' });
   });
 
-  it('marks the taste step as done', async () => {
-    const { post } = setup();
+  it('saves the choice in order, computes the top 3 and completes the taste step', async () => {
+    const { post, put, request } = setup();
     await post('/profile', validProfile);
 
-    const body = await (await post('/onboarding/taste')).json();
+    const response = await put('/taste', { genres: ['rock', 'techno', 'jazz', 'pop'] });
 
-    expect(body.profile.tasteCompleted).toBe(true);
+    expect(response.status).toBe(200);
+    const { profile } = await response.json();
+    expect(profile).toMatchObject({ tasteCompleted: true, topGenres: ['rock', 'techno', 'jazz'] });
+    expect(await (await request('/taste')).json()).toEqual({
+      genres: ['rock', 'techno', 'jazz', 'pop'],
+    });
+  });
+
+  it('replaces an earlier choice', async () => {
+    const { post, put } = setup();
+    await post('/profile', validProfile);
+    await put('/taste', { genres: ['rock', 'techno', 'jazz'] });
+
+    const { profile } = await (await put('/taste', { genres: ['house', 'edm', 'trance'] })).json();
+
+    expect(profile.topGenres).toEqual(['house', 'edm', 'trance']);
+  });
+
+  it('rejects too few, too many, repeated and unknown genres', async () => {
+    const { post, put } = setup();
+    await post('/profile', validProfile);
+    const eleven = [
+      'techno',
+      'house',
+      'trance',
+      'edm',
+      'pop',
+      'rock',
+      'metal',
+      'punk',
+      'jazz',
+      'folk',
+      'retro',
+    ];
+
+    for (const genres of [
+      ['rock', 'techno'],
+      eleven,
+      ['rock', 'rock', 'techno'],
+      ['rock', 'techno', 'polka'],
+    ]) {
+      expect((await put('/taste', { genres })).status).toBe(400);
+    }
+    expect((await put('/taste')).status).toBe(400);
   });
 });
 

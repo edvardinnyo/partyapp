@@ -12,6 +12,7 @@ import {
   type UpdateProfileInput,
   usernameAvailabilitySchema,
 } from '@shared/contracts/profile';
+import { type Genre, isGenre, tasteResponseSchema } from '@shared/contracts/genres';
 import { supabase } from '@/lib/supabase';
 
 export class ApiError extends Error {
@@ -23,7 +24,7 @@ export class ApiError extends Error {
   }
 }
 
-type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 /** Calls the `api` Edge Function; supabase-js adds the signed-in user's token. */
 async function call<T>(
@@ -34,11 +35,21 @@ async function call<T>(
 ) {
   const { data, error } = await supabase.functions.invoke(`api/${path}`, { method, body });
   if (error) {
-    if (error instanceof FunctionsHttpError) {
-      const parsed = apiErrorSchema.safeParse(await error.context.json().catch(() => null));
-      throw new ApiError(parsed.success ? parsed.data.error : 'internal', error.context.status);
+    const apiError =
+      error instanceof FunctionsHttpError
+        ? await (async () => {
+            const parsed = apiErrorSchema.safeParse(await error.context.json().catch(() => null));
+            return new ApiError(
+              parsed.success ? parsed.data.error : 'internal',
+              error.context.status,
+            );
+          })()
+        : new ApiError('network');
+    if (__DEV__) {
+      // Only the route and the error code: never request bodies or tokens.
+      console.warn(`[api] ${method} ${path} failed: ${apiError.code} (${apiError.status ?? '-'})`);
     }
-    throw new ApiError('network');
+    throw apiError;
   }
   return schema.parse(data);
 }
@@ -59,7 +70,12 @@ export const api = {
   updateProfile: (input: UpdateProfileInput): Promise<MeResponse> =>
     call('profile', 'PATCH', meResponseSchema, input),
 
-  completeTaste: (): Promise<MeResponse> => call('onboarding/taste', 'POST', meResponseSchema),
+  /** The manual choice, favourite first; genres this app version does not know are skipped. */
+  getTaste: async (): Promise<Genre[]> =>
+    (await call('taste', 'GET', tasteResponseSchema)).genres.filter(isGenre),
+
+  saveTaste: (genres: Genre[]): Promise<MeResponse> =>
+    call('taste', 'PUT', meResponseSchema, { genres }),
 
   deleteAccount: async (): Promise<void> => {
     await call('account', 'DELETE', z.unknown());

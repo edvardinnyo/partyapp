@@ -1,7 +1,24 @@
 // Database schema, shared by the API Edge Function (Deno) and drizzle-kit (Node).
 import { sql } from 'drizzle-orm';
-import { check, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  check,
+  jsonb,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  smallint,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { authUsers } from 'drizzle-orm/supabase';
+
+import { GENRES } from '../contracts/genres.ts';
+import type { GenreScore } from '../taste/compute-taste.ts';
+
+/** D-005: the common genre list, shared with events later (Q3). */
+export const genreEnum = pgEnum('genre', GENRES);
 
 /**
  * One row per signed-up user, created after the email is confirmed (D-004).
@@ -19,7 +36,7 @@ export const profiles = pgTable(
     adultConfirmedAt: timestamp('adult_confirmed_at', { withTimezone: true }).notNull(),
     privacyAcceptedAt: timestamp('privacy_accepted_at', { withTimezone: true }).notNull(),
     privacyPolicyVersion: text('privacy_policy_version').notNull(),
-    // Placeholder for the taste step until phase 3 stores the real taste profile.
+    // Set when the taste step is first completed (onboarding, D-004/5).
     tasteCompletedAt: timestamp('taste_completed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -31,3 +48,29 @@ export const profiles = pgTable(
 ).enableRLS();
 
 export type ProfileRow = typeof profiles.$inferSelect;
+
+/** The manual choice (D-001, D-005): `position` 0 is the favourite. */
+export const tasteGenres = pgTable(
+  'taste_genres',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    genre: genreEnum('genre').notNull(),
+    position: smallint('position').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.genre] }),
+    unique('taste_genres_user_position_unique').on(table.userId, table.position),
+  ],
+).enableRLS();
+
+/** The computed taste profile (F1). Listening history is never stored (D-005). */
+export const tasteProfiles = pgTable('taste_profiles', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => profiles.id, { onDelete: 'cascade' }),
+  topGenres: genreEnum('top_genres').array().notNull(),
+  genreScores: jsonb('genre_scores').$type<GenreScore[]>().notNull(),
+  computedAt: timestamp('computed_at', { withTimezone: true }).notNull(),
+}).enableRLS();

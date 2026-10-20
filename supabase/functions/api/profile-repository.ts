@@ -65,15 +65,6 @@ export function createProfileRepository(db: PostgresJsDatabase): ProfileReposito
       }
     },
 
-    async markTasteCompleted(userId, at) {
-      const [row] = await db
-        .update(profiles)
-        .set({ tasteCompletedAt: at, updatedAt: at })
-        .where(eq(profiles.id, userId))
-        .returning(storedProfileColumns);
-      return row ?? null;
-    },
-
     async update(userId, { displayName, avatarPath }, at) {
       const [row] = await db
         .update(profiles)

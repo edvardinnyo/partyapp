@@ -40,6 +40,8 @@ export const profileSchema = z.object({
   displayName: z.string(),
   avatarUrl: z.string().nullable(),
   tasteCompleted: z.boolean(),
+  /** F1: the top 3 genres, best first (slugs from genres.ts). */
+  topGenres: z.array(z.string()),
 });
 export type Profile = z.infer<typeof profileSchema>;
 

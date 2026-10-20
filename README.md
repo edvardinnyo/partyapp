@@ -30,7 +30,9 @@ npm start
 
 Ezután a terminálban megjelenő QR-kódot kell beolvasni: iPhone-on a Kamera appal, Androidon az Expo Go-val. A telefon és a gép legyen ugyanazon a Wi-Fi-hálózaton.
 
-**A Google-belépés kipróbálásához tunnel módban indítsd: `npm run start:tunnel`.** Alapból az Expo Go IP-címes címet használ (`exp://192.168.x.x:8081`), a Supabase pedig biztonsági okból nem irányít vissza IP-címre (a belső `127.0.0.1` kivételével), ezért a belépés után a „Site URL”-re esne vissza. Tunnel módban az Expo Go névvel ellátott címet kap (`exp://….exp.direct`), amit a Supabase `exp://**` szabálya lefed. A tunnel mód akkor is segít, ha a telefon nem tud csatlakozni a géphez.
+**A Google-belépés kipróbálásához így indítsd: `npm run start:lan`.** Alapból az Expo Go IP-címes címet használ (`exp://192.168.x.x:8081`), a Supabase pedig biztonsági okból nem irányít vissza IP-címre (a belső `127.0.0.1` kivételével), ezért a belépés után a „Site URL”-re esne vissza. A `start:lan` a géped helyi címét egy nip.io névvel adja meg (pl. `exp://192.168.0.170.nip.io:8081`); ezt a nyilvános DNS ugyanarra a helyi címre fordítja, a Supabase `exp://**` szabálya pedig lefedi. A telefon közvetlenül, a Wi-Fin csatlakozik, így gyors.
+
+Ha a telefon így nem éri el a gépet (egyes routerek tiltják, hogy egy nyilvános név helyi címre mutasson), használd a tunnelt: `npm run start:tunnel`. Ez lassabb, és az ngrok az első kapcsolódást néha eldobja („failed to start tunnel – remote gone away”); ilyenkor indítsd újra.
 
 A `.env` nélkül az app induláskor hibaüzenettel leáll, mert nem tudja, melyik Supabase-projekthez kapcsolódjon.
 
@@ -39,7 +41,8 @@ A `.env` nélkül az app induláskor hibaüzenettel leáll, mert nem tudja, mely
 | Parancs | Mit csinál |
 |---|---|
 | `npm start` | Fejlesztői szerver (Expo Go) |
-| `npm run start:tunnel` | Fejlesztői szerver tunnel módban (az Expo Go-s Google-belépéshez kell) |
+| `npm run start:lan` | Fejlesztői szerver helyi hálózaton, nip.io névvel (az Expo Go-s Google-belépéshez; ajánlott) |
+| `npm run start:tunnel` | Fejlesztői szerver tunnel módban (ha a `start:lan` nem működik) |
 | `npm run typecheck` | TypeScript-ellenőrzés |
 | `npm run lint` | ESLint- és Prettier-ellenőrzés |
 | `npm run format` | A kód automatikus formázása |
