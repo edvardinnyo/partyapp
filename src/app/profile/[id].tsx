@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Link, Stack, useLocalSearchParams } from 'expo-router';
+import { Link, router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -51,13 +51,23 @@ export default function ProfileScreen() {
         />
       ) : null}
       <View style={styles.identity}>
-        <Avatar uri={ownProfile?.avatarUrl} size={112} />
         {ownProfile ? (
-          <View style={styles.names}>
-            <AppText variant="subtitle">{ownProfile.displayName}</AppText>
-            <AppText variant="muted">@{ownProfile.username}</AppText>
-          </View>
-        ) : null}
+          // D-006: tapping the own picture or name opens "Edit profile", like on Instagram.
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('profile.edit')}
+            onPress={() => router.push('/edit-profile')}
+            style={styles.ownIdentity}
+          >
+            <Avatar uri={ownProfile.avatarUrl} size={112} />
+            <View style={styles.names}>
+              <AppText variant="subtitle">{ownProfile.displayName}</AppText>
+              <AppText variant="muted">@{ownProfile.username}</AppText>
+            </View>
+          </Pressable>
+        ) : (
+          <Avatar uri={null} size={112} />
+        )}
         <View style={styles.genres}>
           {GENRE_PLACEHOLDERS.map((number) => (
             <View key={number} style={[styles.genre, { borderColor: colors.accent }]}>
@@ -104,6 +114,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     paddingVertical: 8,
+  },
+  ownIdentity: {
+    alignItems: 'center',
+    gap: 12,
   },
   names: {
     alignItems: 'center',

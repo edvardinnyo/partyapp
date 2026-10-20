@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -18,7 +18,8 @@ import { FormMessage } from '@/components/form-message';
 import { Screen } from '@/components/screen';
 import { TextField } from '@/components/text-field';
 import { signOut } from '@/features/auth/actions';
-import { type PickedAvatar, pickAvatar, uploadAvatar } from '@/features/profile/avatar-upload';
+import { uploadAvatar } from '@/features/profile/avatar-upload';
+import { useAvatarPicker } from '@/features/profile/use-avatar-picker';
 import { api, ApiError } from '@/lib/api';
 import { queryClient, queryKeys } from '@/lib/query-client';
 import { useDebouncedValue } from '@/lib/use-debounced-value';
@@ -35,11 +36,11 @@ export default function CreateProfileScreen() {
   const { t } = useTranslation();
   const [displayName, setDisplayName] = useState('');
   const [usernameInput, setUsernameInput] = useState('');
-  const [avatar, setAvatar] = useState<PickedAvatar | null>(null);
   const [isAdult, setIsAdult] = useState(false);
   const [acceptsPrivacy, setAcceptsPrivacy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const { picked: avatar, choose: chooseAvatar, clear: clearAvatar } = useAvatarPicker(setError);
 
   const username = normalizeUsername(usernameInput);
   const debouncedUsername = useDebouncedValue(username, 400);
@@ -66,29 +67,6 @@ export default function CreateProfileScreen() {
 
   const canSubmit =
     displayNameSchema.safeParse(displayName).success && isAvailable && isAdult && acceptsPrivacy;
-
-  async function pick(source: 'library' | 'camera') {
-    setError(null);
-    try {
-      const result = await pickAvatar(source);
-      if (result === 'permissionDenied') {
-        setError(t('onboarding.cameraDenied'));
-      } else if (result !== 'cancelled') {
-        setAvatar(result);
-      }
-    } catch {
-      setError(t('common.genericError'));
-    }
-  }
-
-  function chooseAvatar() {
-    // Android shows at most three buttons in an alert, so removing has its own link below.
-    Alert.alert(t('onboarding.avatar'), undefined, [
-      { text: t('onboarding.avatarFromLibrary'), onPress: () => void pick('library') },
-      { text: t('onboarding.avatarFromCamera'), onPress: () => void pick('camera') },
-      { text: t('common.cancel'), style: 'cancel' },
-    ]);
-  }
 
   async function handleSubmit() {
     setError(null);
@@ -138,11 +116,7 @@ export default function CreateProfileScreen() {
           <Avatar uri={avatar?.uri} size={112} />
         </Pressable>
         {avatar ? (
-          <AppButton
-            label={t('onboarding.avatarRemove')}
-            variant="link"
-            onPress={() => setAvatar(null)}
-          />
+          <AppButton label={t('onboarding.avatarRemove')} variant="link" onPress={clearAvatar} />
         ) : null}
       </View>
       <TextField

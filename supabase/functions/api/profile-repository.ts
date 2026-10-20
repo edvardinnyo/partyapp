@@ -73,5 +73,18 @@ export function createProfileRepository(db: PostgresJsDatabase): ProfileReposito
         .returning(storedProfileColumns);
       return row ?? null;
     },
+
+    async update(userId, { displayName, avatarPath }, at) {
+      const [row] = await db
+        .update(profiles)
+        .set({
+          ...(displayName !== undefined ? { displayName } : {}),
+          ...(avatarPath !== undefined ? { avatarPath } : {}),
+          updatedAt: at,
+        })
+        .where(eq(profiles.id, userId))
+        .returning(storedProfileColumns);
+      return row ?? null;
+    },
   };
 }

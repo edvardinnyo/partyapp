@@ -142,6 +142,10 @@ export const hu = {
   profile: {
     title: 'Profil',
     openSettings: 'Beállítások megnyitása',
+    edit: 'Profil szerkesztése',
+    changePhoto: 'Profilkép módosítása',
+    usernameFixed: 'A felhasználónév nem módosítható.',
+    save: 'Mentés',
     genre: 'Műfaj {{number}}',
     neuronPlaceholder: 'A 3 leghallgatottabb műfaj „neuronként”, lebegő animációval',
     mostVisited: 'Legtöbbet látogatott hely',

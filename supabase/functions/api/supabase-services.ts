@@ -34,6 +34,13 @@ export function createAvatarStorage(admin: SupabaseClient): AvatarStorage {
       return error ? null : data.signedUrl;
     },
 
+    async remove(path) {
+      const { error } = await bucket.remove([path]);
+      if (error) {
+        throw error;
+      }
+    },
+
     async removeAll(userId) {
       const { data, error } = await bucket.list(userId, { limit: 1000 });
       if (error) {

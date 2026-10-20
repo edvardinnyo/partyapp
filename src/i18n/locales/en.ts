@@ -145,6 +145,10 @@ export const en: Translation = {
   profile: {
     title: 'Profile',
     openSettings: 'Open settings',
+    edit: 'Edit profile',
+    changePhoto: 'Change profile picture',
+    usernameFixed: 'The username cannot be changed.',
+    save: 'Save',
     genre: 'Genre {{number}}',
     neuronPlaceholder: 'Your top 3 genres as floating “neurons”',
     mostVisited: 'Most visited place',

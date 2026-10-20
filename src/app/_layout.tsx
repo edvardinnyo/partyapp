@@ -60,6 +60,11 @@ function RootNavigator() {
             name="profile/[id]"
             options={{ headerShown: true, title: t('profile.title') }}
           />
+          {/* D-006: opened by tapping the own profile, without a navbar. */}
+          <Stack.Screen
+            name="edit-profile"
+            options={{ headerShown: true, title: t('profile.edit') }}
+          />
           {/* D-004: opened from the own profile, without a navbar, with a back arrow. */}
           <Stack.Screen
             name="settings"

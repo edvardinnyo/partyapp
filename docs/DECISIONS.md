@@ -58,6 +58,23 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
   9. **Meg nem erősített e-mail-cím:** nem lehet vele belépni; belépési kísérletkor az app a kód beírására visz, és új kód kérhető. A felhasználónév és a profil csak a megerősítés után jön létre. A meg nem erősített regisztrációt **7 nap után automatikusan töröljük**.
   10. **Minimális életkor: 18 év**, egyszerű „Elmúltam 18 éves” jelölőnégyzettel, születési dátum nélkül (Q23 c). A jogi megfelelést a kiadás előtt jogásszal ellenőrizni kell.
 
+### D-005 — A 3. fázis hatóköre (részben)
+
+- **Dátum:** 2026-10-20
+- **Érintett:** F1, D-001, Q4, Q5
+- **Döntések:**
+  1. A kézi ízlésválasztásban **egyelőre csak műfajok** választhatók. Az előadók és zenék (Apple Music katalógus, D-001/3) az Apple Developer-tagság megvásárlása után kerülnek be.
+  2. A közös műfajlistára én teszek javaslatot (kb. 20 elem), a csapat véglegesíti.
+- **Nyitott:** a Spotify-szinkron (kell-e, és kinél van Premium a fejlesztői app tulajdonosaként), illetve ettől függően más streaming-szolgáltatások (Q4).
+
+### D-006 — Profil szerkesztése regisztráció után
+
+- **Dátum:** 2026-10-20
+- **Érintett:** F4, D-004
+- **Döntés:** a saját profilon a profilképre vagy a névre koppintva megnyílik a **„Profil szerkesztése”** képernyő (az Instagraméhoz hasonlóan), navbar nélkül, visszanyíllal. Itt a **profilkép** módosítható vagy eltávolítható, és a **megjelenített név** is szerkeszthető. A felhasználónév nem módosítható (D-004).
+- A lecserélt vagy eltávolított profilkép azonnal törlődik a tárhelyről.
+- A 7. fázis (profil) előtt, külön kérésre készült el.
+
 ---
 
 ## Elutasított javaslatok
@@ -84,7 +101,7 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
 ### Q5 — Ízlés-algoritmus (részben)
 
 - **Megválaszolva (2026-10-06):** Az előadók is számítanak, és közvetlenül befolyásolják az eseményajánlást (pl. a kedvenc előadó koncertje).
-- **Még nyitott:** az „utóbbi idő” időablaka; a playlistek vagy a hallgatási előzmények számítsanak-e erősebben; az ízlésprofil frissítési gyakorisága.
+- **Megválaszolva (2026-10-20):** a `PHASE0.md` 7.2 (súlyok) és 7.6 (frissítés) pontja szerint: a legutóbbi kb. 4 hét hallgatása számít a legerősebben (1.0), a fél éves toplista közepesen (0.5), a saját playlistek a leggyengébben (0.3); a streaming-ízlés naponta egyszer frissül, a kézi azonnal.
 
 ### Q6 — Távolság (részben)
 
