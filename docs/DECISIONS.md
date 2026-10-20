@@ -62,7 +62,11 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
 
 ## Elutasított javaslatok
 
-_Még nincs._
+### E-001 — Bonyolultabb jelszószabály
+
+- **Dátum:** 2026-10-20
+- **Javaslat:** legalább 8 karakter, kisbetűvel, nagybetűvel és számmal (Supabase → Password Requirements).
+- **Döntés:** elutasítva. Marad a **legalább 8 karakter**, karakterszabály nélkül. A jelszavakat a Supabase bcrypt-lenyomatként tárolja, olvasható formában sehol nincsenek meg.
 
 ---
 
