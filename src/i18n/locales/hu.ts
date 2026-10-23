@@ -224,7 +224,7 @@ export const hu = {
   privacy: {
     title: 'Adatvédelmi tájékoztató',
     draft:
-      'A végleges adatvédelmi tájékoztató még készül; ez a szöveg helykitöltő. A regisztrációhoz az e-mail-címedet, a megjelenített nevedet, a felhasználónevedet és opcionálisan egy profilképet tárolunk, valamint azt, hogy mikor erősítetted meg, hogy elmúltál 18 éves, és mikor fogadtad el ezt a tájékoztatót. Az adatokat az Európai Unióban (Frankfurt) tároljuk. A fiókodat bármikor törölheted a Beállításokban.',
+      'A végleges adatvédelmi tájékoztató még készül; ez a szöveg helykitöltő. A regisztrációhoz az e-mail-címedet, a megjelenített nevedet, a felhasználónevedet és opcionálisan egy profilképet tárolunk, valamint azt, hogy mikor erősítetted meg, hogy elmúltál 18 éves, és mikor fogadtad el ezt a tájékoztatót. Az adatokat az Európai Unióban (Frankfurt) tároljuk. A fiókodat bármikor törölheted a Beállításokban. A meg nem erősített regisztrációt 7 nap, a profil nélkül maradt fiókot 30 nap után automatikusan töröljük.',
   },
   unavailable: {
     title: 'Nem sikerült betölteni a profilod',

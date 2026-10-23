@@ -145,6 +145,7 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
 - **Dátum:** 2026-10-23
 - **Érintett:** F6, D-004/9, D-008/22, D-009, Q23 d
 - **Döntés (jóváhagyott javaslat):** azokat a fiókokat, amelyekhez a létrehozásuk után **30 nappal sincs profil**, egy éjszakai időzített feladat törli, bármilyen belépési móddal jöttek létre. Ilyen fiók akkor marad, ha valaki megerősíti a címét (vagy Google-lel belép), de a profil mentése előtt kilép; a címe addig foglalt. A meg nem erősített regisztrációk 7 napos törlése (D-004/9) változatlan. Az adatvédelmi tájékoztatóban jelezni kell.
+- **Megvalósítás:** pg_cron feladat (`delete-profileless-users`, minden éjjel 3:15-kor, migráció: `20261023193255_delete_profileless_users.sql`). A fióknak a profilon kívül nincs más adata, mert minden más a profilhoz kötődik. Az adatvédelmi helykitöltő szöveg mindkét törlést megemlíti. A bevezetéskor 0 fiók esett volna bele, és árva profilkép sem volt a tárhelyen.
 
 ---
 

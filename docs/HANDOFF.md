@@ -32,7 +32,7 @@ Megválaszolva (2026-10-23, a 4a tesztje után):
 - A csapat **két admin fiókja beállítva** (az `admins` táblában 2 sor van, mindkettőnek van profilja).
 - **Hirdetési sávok:** egy későbbi fázisban térünk vissza rájuk (D-008/27); addig marad a „Hirdetés” helykitöltő. A 4b-ben ne foglalkozz velük.
 - **Az eseményeket nem bíráljuk el** (D-008/28, E-004): a hitelesített partner szabadon feltölt, a csapat utólag módosíthat vagy törölhet.
-- **A profil nélkül maradt fiókok 30 nap után törlődnek** (D-010): jóváhagyva. Ha még nincs kész, ez legyen a 4b első feladata (lásd 3. pont).
+- **A profil nélkül maradt fiókok 30 nap után törlődnek** (D-010): jóváhagyva és elkészült (lásd 3. pont).
 
 **Még nyitott (ezt kérdezd meg a 4b eseményes részei előtt, ha nincs válasz a DECISIONS-ben):**
 
@@ -43,7 +43,7 @@ Megválaszolva (2026-10-23, a 4a tesztje után):
 
 Forrás: D-008/6–9, 16–18, 24–28, D-010. Ezen túl semmit ne építs be (CLAUDE.md, 1. fejezet). Ág: `feature/f5-partner-events` (a mainből).
 
-- **A profil nélküli fiókok törlése (D-010):** pg_cron feladat a `supabase/migrations/20261018204345_delete_unconfirmed_users.sql` mintájára, és egy mondat az adatvédelmi tájékoztató helykitöltő szövegében (`privacy.draft`, hu és en).
+- **A profil nélküli fiókok törlése (D-010): kész** a `feature/f5-partner-events` ágon (migráció élesítve, az adatvédelmi helykitöltő szöveg is említi). A 4b többi része még nem kezdődött el.
 
 - **Esemény adatai (D-008/6):** cím, típus (klub / bár / koncert / fesztivál), kezdés és zárás, helyszín, 1–3 műfaj a közös listából (ez határozza meg, kinek ajánljuk), fellépők, jegyár (bruttó, forintban), rövid leírás (legfeljebb 1000 karakter), borítókép.
 - **Helyszín és pin (D-008/24):** a partner címet ad meg, a pint az app teszi le a címből, a partner szükség esetén odébb húzhatja. A felhasználó kérdése volt, hogy ez **fizetés nélkül** megoldható-e; ingyenes geokódolás kell. Lehetőségek: `expo-location` `geocodeAsync` (a telefon saját geokódolója), vagy szerveroldali, ingyenes szolgáltatás a felhasználási feltételeinek betartásával. Ha külső szolgáltatás kell, az termékdöntés: kérdezz.

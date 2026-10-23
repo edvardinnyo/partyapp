@@ -71,6 +71,13 @@
       "when": 1792780961769,
       "tag": "20261023184241_admins",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792783975027,
+      "tag": "20261023193255_delete_profileless_users",
+      "breakpoints": true
     }
   ]
 }

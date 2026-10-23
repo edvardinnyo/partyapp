@@ -226,7 +226,7 @@ export const en: Translation = {
   privacy: {
     title: 'Privacy notice',
     draft:
-      'The final privacy notice is still being written; this text is a placeholder. For signing up we store your email address, display name, username and optionally a profile picture, as well as when you confirmed that you are over 18 and when you accepted this notice. The data is stored in the European Union (Frankfurt). You can delete your account at any time in Settings.',
+      'The final privacy notice is still being written; this text is a placeholder. For signing up we store your email address, display name, username and optionally a profile picture, as well as when you confirmed that you are over 18 and when you accepted this notice. The data is stored in the European Union (Frankfurt). You can delete your account at any time in Settings. Unconfirmed sign-ups are deleted automatically after 7 days, and accounts left without a profile after 30 days.',
   },
   unavailable: {
     title: 'Your profile could not be loaded',

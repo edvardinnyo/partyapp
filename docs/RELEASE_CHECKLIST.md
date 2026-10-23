@@ -26,7 +26,7 @@ Gyűjtőlista azokról a feladatokról, amelyeket a nyilvános kiadás (8. fázi
 
 ## Jog és adatvédelem (Q23)
 
-- [ ] Végleges adatvédelmi tájékoztató (jogásszal), nyilvános URL-en is (App Store, Google Play, Google Auth Platform). Szövegváltozáskor a `PRIVACY_POLICY_VERSION` emelése az API-ban.
+- [ ] Végleges adatvédelmi tájékoztató (jogásszal), nyilvános URL-en is (App Store, Google Play, Google Auth Platform). Szövegváltozáskor a `PRIVACY_POLICY_VERSION` emelése az API-ban. Szerepeljen benne az automatikus törlés: a meg nem erősített regisztráció 7 nap, a profil nélkül maradt fiók 30 nap után (D-004/9, D-010).
 - [ ] Az adatfeldolgozók felsorolása (Supabase, Resend, Google) és az adatfeldolgozási szerződések (DPA).
 - [ ] A 18+ szabály (D-004/10) jogi ellenőrzése.
 - [ ] **Partneri felhasználási feltételek** (D-008/12): a helykitöltő szöveg cseréje jogász által írt feltételekre (ki felel az esemény tartalmáért és a feltöltött képekért, az adminok leszedési és módosítási joga). **Emlékeztetőt kértetek rá a kiadás előtt.**
