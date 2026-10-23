@@ -1,17 +1,18 @@
 import { eq } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 
-import { profiles } from '../_shared/db/schema.ts';
-import type { ProfileRepository } from './app.ts';
+import { partners, profiles } from '../_shared/db/schema.ts';
+import type { ProfileRepository, StoredProfile } from './app.ts';
 
 const UNIQUE_VIOLATION = '23505';
 
-const storedProfileColumns = {
+export const storedProfileColumns = {
   id: profiles.id,
   username: profiles.username,
   displayName: profiles.displayName,
   avatarPath: profiles.avatarPath,
   tasteCompletedAt: profiles.tasteCompletedAt,
+  accountType: profiles.accountType,
 };
 
 /** Returns the violated unique constraint's name, or null for any other error. */
@@ -24,6 +25,24 @@ function uniqueViolation(error: unknown): string | null {
     }
   }
   return null;
+}
+
+/** Turns a duplicate username or a second profile into the API's answer; rethrows the rest. */
+export async function insertingProfile(
+  insert: () => Promise<StoredProfile>,
+): Promise<StoredProfile | 'username_taken' | 'profile_exists'> {
+  try {
+    return await insert();
+  } catch (error) {
+    const constraint = uniqueViolation(error);
+    if (constraint === 'profiles_username_unique') {
+      return 'username_taken';
+    }
+    if (constraint === 'profiles_pkey') {
+      return 'profile_exists';
+    }
+    throw error;
+  }
 }
 
 export function createProfileRepository(db: PostgresJsDatabase): ProfileRepository {
@@ -47,22 +66,13 @@ export function createProfileRepository(db: PostgresJsDatabase): ProfileReposito
     },
 
     async create(profile) {
-      try {
+      return insertingProfile(async () => {
         const [row] = await db.insert(profiles).values(profile).returning(storedProfileColumns);
         if (!row) {
           throw new Error('Profile insert returned no row');
         }
         return row;
-      } catch (error) {
-        const constraint = uniqueViolation(error);
-        if (constraint === 'profiles_username_unique') {
-          return 'username_taken';
-        }
-        if (constraint === 'profiles_pkey') {
-          return 'profile_exists';
-        }
-        throw error;
-      }
+      });
     },
 
     async update(userId, { displayName, avatarPath }, at) {
@@ -76,6 +86,19 @@ export function createProfileRepository(db: PostgresJsDatabase): ProfileReposito
         .where(eq(profiles.id, userId))
         .returning(storedProfileColumns);
       return row ?? null;
+    },
+
+    async findProtectedNames() {
+      // Few enough to check in full; a normalised, indexed name column can come with growth.
+      return db
+        .select({
+          userId: profiles.id,
+          username: profiles.username,
+          displayName: profiles.displayName,
+        })
+        .from(profiles)
+        .innerJoin(partners, eq(partners.userId, profiles.id))
+        .where(eq(partners.status, 'approved'));
     },
   };
 }

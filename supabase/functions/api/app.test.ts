@@ -9,11 +9,17 @@ import {
   type EventRepository,
   NEARBY_EVENTS_LIMIT,
   type NearbyEventsQuery,
+  type NewPartner,
   type NewProfile,
+  PARTNER_TERMS_VERSION,
+  type PartnerApplicationNotice,
+  type PartnerNotifier,
+  type PartnerRepository,
   PRIVACY_POLICY_VERSION,
   type ProfileRepository,
   type SettingsRepository,
   type StoredEvent,
+  type StoredPartner,
   type StoredProfile,
   type TasteRepository,
 } from './app.ts';
@@ -25,18 +31,34 @@ const USER_ID = '7b6f1d2e-0000-4000-8000-000000000001';
 const OTHER_USER_ID = '7b6f1d2e-0000-4000-8000-000000000002';
 const NOW = new Date('2026-10-18T20:00:00Z');
 
+type ProfileRow = NewProfile & { tasteCompletedAt: Date | null };
+type PartnerRow = StoredPartner & Omit<NewPartner, 'submittedAt'>;
+
 function createFakes() {
-  const rows = new Map<string, NewProfile & { tasteCompletedAt: Date | null }>();
+  const rows = new Map<string, ProfileRow>();
+  const partnerRows = new Map<string, PartnerRow>();
   const files = new Set<string>();
   const deletedUsers: string[] = [];
+  const notices: PartnerApplicationNotice[] = [];
 
-  const toStored = (row: NewProfile & { tasteCompletedAt: Date | null }): StoredProfile => ({
+  const toStored = (row: ProfileRow): StoredProfile => ({
     id: row.id,
     username: row.username,
     displayName: row.displayName,
     avatarPath: row.avatarPath,
     tasteCompletedAt: row.tasteCompletedAt,
+    accountType: row.accountType,
   });
+
+  const insertProfile = (profile: NewProfile) => {
+    if (rows.has(profile.id)) return 'profile_exists' as const;
+    if ([...rows.values()].some((r) => r.username === profile.username)) {
+      return 'username_taken' as const;
+    }
+    const row = { ...profile, tasteCompletedAt: null };
+    rows.set(profile.id, row);
+    return toStored(row);
+  };
 
   const profiles: ProfileRepository = {
     findById: async (userId) => {
@@ -44,19 +66,54 @@ function createFakes() {
       return row ? toStored(row) : null;
     },
     isUsernameTaken: async (username) => [...rows.values()].some((r) => r.username === username),
-    create: async (profile) => {
-      if (rows.has(profile.id)) return 'profile_exists';
-      if ([...rows.values()].some((r) => r.username === profile.username)) return 'username_taken';
-      const row = { ...profile, tasteCompletedAt: null };
-      rows.set(profile.id, row);
-      return toStored(row);
-    },
+    create: async (profile) => insertProfile(profile),
     update: async (userId, { displayName, avatarPath }) => {
       const row = rows.get(userId);
       if (!row) return null;
       if (displayName !== undefined) row.displayName = displayName;
       if (avatarPath !== undefined) row.avatarPath = avatarPath;
       return toStored(row);
+    },
+    findProtectedNames: async () =>
+      [...partnerRows.entries()]
+        .filter(([, partner]) => partner.status === 'approved')
+        .map(([userId]) => {
+          const row = rows.get(userId)!;
+          return { userId, username: row.username, displayName: row.displayName };
+        }),
+  };
+
+  const partners: PartnerRepository = {
+    find: async (userId) => partnerRows.get(userId) ?? null,
+    createApplication: async (profile, partner) => {
+      const created = insertProfile(profile);
+      if (typeof created !== 'string') {
+        partnerRows.set(profile.id, {
+          ...partner,
+          status: 'pending',
+          bio: null,
+          rejectionReason: null,
+        });
+      }
+      return created;
+    },
+    resubmit: async (userId, displayName, details, at) => {
+      rows.get(userId)!.displayName = displayName;
+      const partner = partnerRows.get(userId)!;
+      Object.assign(partner, details, {
+        status: 'pending',
+        rejectionReason: null,
+        submittedAt: at,
+      });
+    },
+    updateBio: async (userId, bio) => {
+      partnerRows.get(userId)!.bio = bio;
+    },
+  };
+
+  const partnerNotifier: PartnerNotifier = {
+    applicationSubmitted: async (notice) => {
+      notices.push(notice);
     },
   };
 
@@ -123,12 +180,16 @@ function createFakes() {
 
   return {
     rows,
+    partnerRows,
     files,
     deletedUsers,
+    notices,
     savedSettings,
     storedEvents,
     nearbyQueries,
     profiles,
+    partners,
+    partnerNotifier,
     tastes,
     settings,
     events,
@@ -141,37 +202,33 @@ function setup() {
   const fakes = createFakes();
   const app = createApp({
     profiles: fakes.profiles,
+    partners: fakes.partners,
+    partnerNotifier: fakes.partnerNotifier,
     tastes: fakes.tastes,
     settings: fakes.settings,
     events: fakes.events,
     newId: () => 'file-1',
     now: () => NOW,
   });
-  const bindings: ApiBindings = {
-    userId: USER_ID,
-    avatars: fakes.avatars,
-    accounts: fakes.accounts,
+  /** Requests as the given user; the email comes from the JWT in production. */
+  const as = (userId: string) => {
+    const bindings: ApiBindings = {
+      userId,
+      email: userId === USER_ID ? 'info@fogashaz.hu' : 'someone@example.com',
+      avatars: fakes.avatars,
+      accounts: fakes.accounts,
+    };
+    const request = (path: string, init?: RequestInit) =>
+      app.request(`/api${path}`, init, bindings);
+    const send = (method: string) => (path: string, body?: unknown) =>
+      request(path, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    return { request, post: send('POST'), patch: send('PATCH'), put: send('PUT') };
   };
-  const request = (path: string, init?: RequestInit) => app.request(`/api${path}`, init, bindings);
-  const post = (path: string, body?: unknown) =>
-    request(path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-  const patch = (path: string, body?: unknown) =>
-    request(path, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-  const put = (path: string, body?: unknown) =>
-    request(path, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-  return { ...fakes, request, post, patch, put };
+  return { ...fakes, ...as(USER_ID), as };
 }
 
 const validProfile = {
@@ -179,6 +236,20 @@ const validProfile = {
   username: 'oli.fekete',
   avatarPath: null,
   adultConfirmed: true,
+  privacyAccepted: true,
+};
+
+const validApplication = {
+  displayName: 'Fogasház',
+  username: 'fogashaz',
+  avatarPath: null,
+  companyName: 'Fogasház Kft.',
+  taxNumber: '10773381244',
+  contactName: 'Kiss Anna',
+  contactPhone: '+36 30 123 4567',
+  address: '1073 Budapest, Akácfa utca 51.',
+  website: 'fogashaz.hu',
+  termsAccepted: true,
   privacyAccepted: true,
 };
 
@@ -206,6 +277,9 @@ describe('GET /api/me', () => {
       avatarUrl: `https://storage.test/${USER_ID}/file-1.jpg?signed`,
       tasteCompleted: false,
       topGenres: [],
+      accountType: 'person',
+      verified: false,
+      partner: null,
     });
   });
 });
@@ -224,8 +298,14 @@ describe('GET /api/usernames/:username', () => {
     const { request, post } = setup();
     await post('/profile', validProfile);
 
-    expect(await (await request('/usernames/Oli.Fekete')).json()).toEqual({ available: false });
-    expect(await (await request('/usernames/oli_fekete')).json()).toEqual({ available: true });
+    expect(await (await request('/usernames/Oli.Fekete')).json()).toEqual({
+      available: false,
+      reason: 'taken',
+    });
+    expect(await (await request('/usernames/oli_fekete')).json()).toEqual({
+      available: true,
+      reason: null,
+    });
   });
 });
 
@@ -278,6 +358,7 @@ describe('POST /api/profile', () => {
       username: 'taken.name',
       displayName: 'Other',
       avatarPath: null,
+      accountType: 'person',
       adultConfirmedAt: NOW,
       privacyAcceptedAt: NOW,
       privacyPolicyVersion: PRIVACY_POLICY_VERSION,
@@ -568,6 +649,180 @@ describe('GET /api/events/:id (Q8)', () => {
       expect(response.status).toBe(404);
       expect(await response.json()).toEqual({ error: 'not_found' });
     }
+  });
+});
+
+describe('partner applications (D-008)', () => {
+  it('creates a partner profile without a taste step and tells the team', async () => {
+    const { post, request, partnerRows, notices } = setup();
+
+    const response = await post('/partner/application', validApplication);
+
+    expect(response.status).toBe(201);
+    const { profile } = await response.json();
+    expect(profile).toMatchObject({
+      username: 'fogashaz',
+      displayName: 'Fogasház',
+      accountType: 'partner',
+      verified: false,
+      topGenres: [],
+      partner: {
+        status: 'pending',
+        rejectionReason: null,
+        companyName: 'Fogasház Kft.',
+        taxNumber: '10773381-2-44',
+        website: 'https://fogashaz.hu',
+        bio: null,
+      },
+    });
+    expect(partnerRows.get(USER_ID)).toMatchObject({
+      termsAcceptedAt: NOW,
+      termsVersion: PARTNER_TERMS_VERSION,
+      submittedAt: NOW,
+    });
+    expect(notices).toEqual([
+      {
+        userId: USER_ID,
+        accountEmail: 'info@fogashaz.hu',
+        displayName: 'Fogasház',
+        username: 'fogashaz',
+        details: {
+          companyName: 'Fogasház Kft.',
+          taxNumber: '10773381-2-44',
+          contactName: 'Kiss Anna',
+          contactPhone: '+36 30 123 4567',
+          address: '1073 Budapest, Akácfa utca 51.',
+          website: 'https://fogashaz.hu',
+        },
+        submittedAt: NOW,
+        resubmission: false,
+      },
+    ]);
+    expect((await (await request('/me')).json()).profile.accountType).toBe('partner');
+  });
+
+  it('needs both acceptances and checks the details', async () => {
+    const { post, notices } = setup();
+
+    for (const invalid of [
+      { ...validApplication, termsAccepted: false },
+      { ...validApplication, privacyAccepted: false },
+      { ...validApplication, taxNumber: '12345678-2-44' },
+      { ...validApplication, contactPhone: 'none' },
+    ]) {
+      expect((await post('/partner/application', invalid)).status).toBe(400);
+    }
+    expect(notices).toEqual([]);
+  });
+
+  it('keeps the application when the email cannot be sent', async () => {
+    const { post, partnerNotifier, partnerRows } = setup();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    partnerNotifier.applicationSubmitted = async () => {
+      throw new Error('mail is down');
+    };
+
+    const response = await post('/partner/application', validApplication);
+
+    expect(response.status).toBe(201);
+    expect(partnerRows.get(USER_ID)?.status).toBe('pending');
+  });
+
+  it('lets only a rejected partner send a corrected application', async () => {
+    const { post, put, partnerRows, notices, rows } = setup();
+    await post('/partner/application', validApplication);
+    const correction = {
+      displayName: 'Fogasház Budapest',
+      companyName: 'Fogasház Kft.',
+      taxNumber: '10773381-2-44',
+      contactName: 'Kiss Anna',
+      contactPhone: '+36 30 765 4321',
+      address: '1073 Budapest, Akácfa utca 51.',
+      website: null,
+    };
+
+    expect((await put('/partner/application', correction)).status).toBe(403);
+
+    Object.assign(partnerRows.get(USER_ID)!, {
+      status: 'rejected',
+      rejectionReason: 'Hibás adószám',
+    });
+    const response = await put('/partner/application', correction);
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).profile.partner).toMatchObject({
+      status: 'pending',
+      rejectionReason: null,
+      contactPhone: '+36 30 765 4321',
+      website: null,
+    });
+    expect(rows.get(USER_ID)?.displayName).toBe('Fogasház Budapest');
+    expect(notices.map((notice) => notice.resubmission)).toEqual([false, true]);
+  });
+
+  it('keeps people and partners to their own settings', async () => {
+    const { post, put, patch, as } = setup();
+    await post('/partner/application', validApplication);
+    await as(OTHER_USER_ID).post('/profile', validProfile);
+
+    // D-008/11: no taste for a partner; its public name belongs to the application.
+    expect((await put('/taste', { genres: ['rock', 'techno', 'jazz'] })).status).toBe(403);
+    expect((await patch('/profile', { displayName: 'Másik név' })).status).toBe(403);
+    const withBio = await patch('/profile', { bio: '  Klub a VII. kerületben.  ' });
+    expect((await withBio.json()).profile.partner.bio).toBe('Klub a VII. kerületben.');
+    // People have no introduction.
+    expect((await as(OTHER_USER_ID).patch('/profile', { bio: 'Szia' })).status).toBe(403);
+  });
+});
+
+describe('protected partner names (D-008/5)', () => {
+  async function withApprovedPartner() {
+    const context = setup();
+    await context.as(OTHER_USER_ID).post('/partner/application', {
+      ...validApplication,
+      displayName: 'Akvárium Klub',
+      username: 'akvarium',
+    });
+    context.partnerRows.get(OTHER_USER_ID)!.status = 'approved';
+    return context;
+  }
+
+  it('reports a name too close to a verified partner as unavailable', async () => {
+    const { request } = await withApprovedPartner();
+
+    expect(await (await request('/usernames/akvarium')).json()).toEqual({
+      available: false,
+      reason: 'taken',
+    });
+    expect(await (await request('/usernames/akvarium.official')).json()).toEqual({
+      available: false,
+      reason: 'protected',
+    });
+    expect(await (await request('/usernames/oli.fekete')).json()).toEqual({
+      available: true,
+      reason: null,
+    });
+  });
+
+  it('stops people and other partners from taking it', async () => {
+    const { post, patch } = await withApprovedPartner();
+
+    const person = await post('/profile', { ...validProfile, displayName: 'Akvárium klub' });
+    expect(person.status).toBe(409);
+    expect(await person.json()).toEqual({ error: 'name_protected' });
+
+    expect((await post('/profile', validProfile)).status).toBe(201);
+    expect((await patch('/profile', { displayName: 'AkvariumKlub' })).status).toBe(409);
+  });
+
+  it('protects only approved partners', async () => {
+    const { request, partnerRows } = await withApprovedPartner();
+    partnerRows.get(OTHER_USER_ID)!.status = 'pending';
+
+    expect(await (await request('/usernames/akvarium.official')).json()).toEqual({
+      available: true,
+      reason: null,
+    });
   });
 });
 

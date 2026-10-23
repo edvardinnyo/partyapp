@@ -5,6 +5,8 @@ import postgres from 'postgres';
 
 import { createApp } from './app.ts';
 import { createEventRepository } from './event-repository.ts';
+import { createPartnerNotifier } from './partner-notifier.ts';
+import { createPartnerRepository } from './partner-repository.ts';
 import { createProfileRepository } from './profile-repository.ts';
 import { createSettingsRepository } from './settings-repository.ts';
 import { createTasteRepository } from './taste-repository.ts';
@@ -17,6 +19,12 @@ const db = drizzle({ client });
 
 const app = createApp({
   profiles: createProfileRepository(db),
+  partners: createPartnerRepository(db),
+  // Secrets: `npx supabase secrets set RESEND_API_KEY=… PARTNER_REVIEW_EMAIL=…`
+  partnerNotifier: createPartnerNotifier({
+    apiKey: Deno.env.get('RESEND_API_KEY'),
+    to: Deno.env.get('PARTNER_REVIEW_EMAIL'),
+  }),
   tastes: createTasteRepository(db),
   settings: createSettingsRepository(db),
   events: createEventRepository(db),
@@ -32,6 +40,7 @@ export default {
     }
     return app.fetch(request, {
       userId,
+      email: ctx.userClaims?.email ?? null,
       avatars: createAvatarStorage(ctx.supabaseAdmin),
       accounts: createAccounts(ctx.supabaseAdmin),
     });
