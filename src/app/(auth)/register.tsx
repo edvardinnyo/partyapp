@@ -1,8 +1,10 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { AppButton } from '@/components/app-button';
+import { AppText } from '@/components/app-text';
 import { FormMessage } from '@/components/form-message';
 import { Screen } from '@/components/screen';
 import { TextField } from '@/components/text-field';
@@ -62,6 +64,25 @@ export default function RegisterScreen() {
         loading={busy}
         disabled={busy || !isValidEmail(email) || !isValidPassword(password)}
       />
+      {/* D-008/1: companies and organisers register as partners. */}
+      <View style={styles.partner}>
+        <AppText variant="muted">{t('partners.prompt')}</AppText>
+        <AppButton
+          label={t('partners.registerLink')}
+          variant="link"
+          onPress={() => router.replace('/partner-register')}
+        />
+      </View>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  partner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+});

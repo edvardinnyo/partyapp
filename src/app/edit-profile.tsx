@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import {
   displayNameSchema,
   DISPLAY_NAME_MAX_LENGTH,
+  isPartnerProfile,
+  PARTNER_BIO_MAX_LENGTH,
   type UpdateProfileInput,
 } from '@shared/contracts/profile';
 import { AppButton } from '@/components/app-button';
@@ -22,10 +24,12 @@ import { queryClient, queryKeys } from '@/lib/query-client';
 
 // D-006: opened by tapping the own profile (like Instagram's "Edit profile"), without a navbar.
 // The profile picture and the display name can change; the username stays fixed (D-004).
+// D-008: a partner changes its logo and introduction; its public name belongs to the application.
 export default function EditProfileScreen() {
   const { t } = useTranslation();
   const profile = useMyProfile().data?.profile;
   const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
+  const [bio, setBio] = useState(profile?.partner?.bio ?? '');
   const [removesAvatar, setRemovesAvatar] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -35,11 +39,14 @@ export default function EditProfileScreen() {
     return null;
   }
 
+  const isPartner = isPartnerProfile(profile);
   const shownAvatar = avatarPicker.picked?.uri ?? (removesAvatar ? null : profile.avatarUrl);
-  const nameChanged = displayName.trim() !== profile.displayName;
+  const nameChanged = !isPartner && displayName.trim() !== profile.displayName;
+  const bioChanged = isPartner && bio.trim() !== (profile.partner?.bio ?? '');
   const avatarChanged = avatarPicker.picked !== null || (removesAvatar && profile.avatarUrl);
   const canSave =
-    (nameChanged || avatarChanged) && displayNameSchema.safeParse(displayName).success;
+    (nameChanged || bioChanged || avatarChanged) &&
+    displayNameSchema.safeParse(displayName).success;
 
   function chooseAvatar() {
     setError(null);
@@ -60,6 +67,9 @@ export default function EditProfileScreen() {
       if (nameChanged) {
         changes.displayName = displayName.trim();
       }
+      if (bioChanged) {
+        changes.bio = bio;
+      }
       if (avatarPicker.picked) {
         changes.avatarPath = await uploadAvatar(avatarPicker.picked);
       } else if (removesAvatar && profile?.avatarUrl) {
@@ -70,6 +80,8 @@ export default function EditProfileScreen() {
     } catch (saveError) {
       if (saveError instanceof ApiError && saveError.code === 'network') {
         setError(t('common.networkError'));
+      } else if (saveError instanceof ApiError && saveError.code === 'name_protected') {
+        setError(t('partners.nameProtected'));
       } else if (saveError instanceof ApiError && saveError.code !== 'invalid_avatar') {
         setError(t('common.genericError'));
       } else {
@@ -95,14 +107,32 @@ export default function EditProfileScreen() {
           <AppButton label={t('onboarding.avatarRemove')} variant="link" onPress={removeAvatar} />
         ) : null}
       </View>
-      <TextField
-        label={t('onboarding.displayName')}
-        value={displayName}
-        onChangeText={setDisplayName}
-        maxLength={DISPLAY_NAME_MAX_LENGTH}
-        autoComplete="name"
-        textContentType="name"
-      />
+      {isPartner ? (
+        <>
+          <View style={styles.username}>
+            <AppText variant="muted">{t('partners.publicName')}</AppText>
+            <AppText>{profile.displayName}</AppText>
+            <AppText variant="muted">{t('partners.nameFixed')}</AppText>
+          </View>
+          <TextField
+            label={t('partners.bio')}
+            value={bio}
+            onChangeText={setBio}
+            maxLength={PARTNER_BIO_MAX_LENGTH}
+            multiline
+            hint={t('partners.bioHint', { max: PARTNER_BIO_MAX_LENGTH })}
+          />
+        </>
+      ) : (
+        <TextField
+          label={t('onboarding.displayName')}
+          value={displayName}
+          onChangeText={setDisplayName}
+          maxLength={DISPLAY_NAME_MAX_LENGTH}
+          autoComplete="name"
+          textContentType="name"
+        />
+      )}
       <View style={styles.username}>
         <AppText variant="muted">{t('onboarding.username')}</AppText>
         <AppText>@{profile.username}</AppText>

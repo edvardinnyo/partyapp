@@ -20,8 +20,12 @@ import {
   nearbyEventsResponseSchema,
 } from '@shared/contracts/events';
 import { type Genre, isGenre, tasteResponseSchema } from '@shared/contracts/genres';
+import type { PartnerApplicationInput, PartnerResubmissionInput } from '@shared/contracts/partner';
 import { settingsResponseSchema, type UserSettings } from '@shared/contracts/settings';
 import { supabase } from '@/lib/supabase';
+
+/** D-008/5: `protected` means too close to a verified partner's name. */
+export type UsernameAvailability = 'available' | 'taken' | 'protected';
 
 export class ApiError extends Error {
   constructor(
@@ -65,9 +69,14 @@ async function call<T>(
 export const api = {
   getMe: (): Promise<MeResponse> => call('me', 'GET', meResponseSchema),
 
-  isUsernameAvailable: async (username: string): Promise<boolean> =>
-    (await call(`usernames/${encodeURIComponent(username)}`, 'GET', usernameAvailabilitySchema))
-      .available,
+  checkUsername: async (username: string): Promise<UsernameAvailability> => {
+    const { available, reason } = await call(
+      `usernames/${encodeURIComponent(username)}`,
+      'GET',
+      usernameAvailabilitySchema,
+    );
+    return available ? 'available' : reason === 'protected' ? 'protected' : 'taken';
+  },
 
   createAvatarUpload: (): Promise<AvatarUpload> =>
     call('profile/avatar-upload', 'POST', avatarUploadSchema),
@@ -77,6 +86,14 @@ export const api = {
 
   updateProfile: (input: UpdateProfileInput): Promise<MeResponse> =>
     call('profile', 'PATCH', meResponseSchema, input),
+
+  /** D-008: the first application creates the partner profile. */
+  submitPartnerApplication: (input: PartnerApplicationInput): Promise<MeResponse> =>
+    call('partner/application', 'POST', meResponseSchema, input),
+
+  /** D-008/4: after a rejection, the corrected application. */
+  resubmitPartnerApplication: (input: PartnerResubmissionInput): Promise<MeResponse> =>
+    call('partner/application', 'PUT', meResponseSchema, input),
 
   /** The manual choice, favourite first; genres this app version does not know are skipped. */
   getTaste: async (): Promise<Genre[]> =>

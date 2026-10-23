@@ -9,6 +9,9 @@ const profile: Profile = {
   avatarUrl: null,
   tasteCompleted: true,
   topGenres: ['techno', 'house', 'pop'],
+  accountType: 'person',
+  verified: false,
+  partner: null,
 };
 
 const signedIn = {
@@ -62,5 +65,10 @@ describe('resolveAppState', () => {
 
   it('opens the app once onboarding is done', () => {
     expect(resolveAppState({ ...signedIn, profile })).toBe('ready');
+  });
+
+  it('lets a partner in without a taste step, even before approval (D-008)', () => {
+    const partner = { ...profile, accountType: 'partner', tasteCompleted: false, topGenres: [] };
+    expect(resolveAppState({ ...signedIn, profile: partner })).toBe('ready');
   });
 });

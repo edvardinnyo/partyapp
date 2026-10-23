@@ -1,6 +1,7 @@
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
+import type { AccountType } from '@shared/contracts/profile';
 import { api } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 
@@ -17,12 +18,19 @@ export async function signIn(email: string, password: string): Promise<void> {
  * D-004: Supabase emails a 6-digit code to confirm the address.
  * For an address that already has a confirmed account Supabase sends nothing and returns a user
  * without identities (so accounts cannot be enumerated); the app then points to signing in.
+ * D-008/3: a partner registers from its own screen; the account type travels with the user, so
+ * after the code the right onboarding opens (the profile itself fixes the type for good).
  */
 export async function signUp(
   email: string,
   password: string,
+  accountType: AccountType = 'person',
 ): Promise<'codeSent' | 'accountExists'> {
-  const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
+  const { data, error } = await supabase.auth.signUp({
+    email: email.trim(),
+    password,
+    options: { data: { account_type: accountType } },
+  });
   if (error) {
     throw error;
   }

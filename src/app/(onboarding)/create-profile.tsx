@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -7,9 +6,7 @@ import { useTranslation } from 'react-i18next';
 import {
   displayNameSchema,
   DISPLAY_NAME_MAX_LENGTH,
-  normalizeUsername,
   USERNAME_MAX_LENGTH,
-  usernameSchema,
 } from '@shared/contracts/profile';
 import { AppButton } from '@/components/app-button';
 import { Avatar } from '@/components/avatar';
@@ -20,53 +17,29 @@ import { TextField } from '@/components/text-field';
 import { signOut } from '@/features/auth/actions';
 import { uploadAvatar } from '@/features/profile/avatar-upload';
 import { useAvatarPicker } from '@/features/profile/use-avatar-picker';
+import { useUsernameField } from '@/features/profile/use-username-field';
 import { api, ApiError } from '@/lib/api';
 import { queryClient, queryKeys } from '@/lib/query-client';
-import { useDebouncedValue } from '@/lib/use-debounced-value';
 
 class AvatarUploadError extends Error {}
-
-function isValidUsername(username: string) {
-  return usernameSchema.safeParse(username).success;
-}
 
 // D-004: display name and username are required, the profile picture is optional; the 18+
 // confirmation and the privacy notice acceptance are required for every new account.
 export default function CreateProfileScreen() {
   const { t } = useTranslation();
   const [displayName, setDisplayName] = useState('');
-  const [usernameInput, setUsernameInput] = useState('');
   const [isAdult, setIsAdult] = useState(false);
   const [acceptsPrivacy, setAcceptsPrivacy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const { picked: avatar, choose: chooseAvatar, clear: clearAvatar } = useAvatarPicker(setError);
-
-  const username = normalizeUsername(usernameInput);
-  const debouncedUsername = useDebouncedValue(username, 400);
-  const availability = useQuery({
-    queryKey: queryKeys.usernameAvailability(debouncedUsername),
-    queryFn: () => api.isUsernameAvailable(debouncedUsername),
-    enabled: isValidUsername(debouncedUsername),
-  });
-  const isChecking =
-    isValidUsername(username) && (debouncedUsername !== username || availability.isFetching);
-  const isAvailable = !isChecking && availability.data === true;
-
-  let usernameError: string | null = null;
-  let usernameHint: string | null = t('onboarding.usernameRules');
-  if (usernameInput.length > 0 && !isValidUsername(username)) {
-    usernameError = t('onboarding.usernameRules');
-  } else if (isChecking) {
-    usernameHint = t('onboarding.usernameChecking');
-  } else if (availability.data === false) {
-    usernameError = t('onboarding.usernameTaken');
-  } else if (isAvailable) {
-    usernameHint = t('onboarding.usernameAvailable');
-  }
+  const usernameField = useUsernameField();
 
   const canSubmit =
-    displayNameSchema.safeParse(displayName).success && isAvailable && isAdult && acceptsPrivacy;
+    displayNameSchema.safeParse(displayName).success &&
+    usernameField.isAvailable &&
+    isAdult &&
+    acceptsPrivacy;
 
   async function handleSubmit() {
     setError(null);
@@ -79,7 +52,7 @@ export default function CreateProfileScreen() {
         : null;
       const me = await api.createProfile({
         displayName: displayName.trim(),
-        username,
+        username: usernameField.username,
         avatarPath,
         adultConfirmed: true,
         privacyAccepted: true,
@@ -89,7 +62,9 @@ export default function CreateProfileScreen() {
     } catch (submitError) {
       if (submitError instanceof ApiError && submitError.code === 'username_taken') {
         setError(t('onboarding.usernameTaken'));
-        void availability.refetch();
+        usernameField.recheck();
+      } else if (submitError instanceof ApiError && submitError.code === 'name_protected') {
+        setError(t('partners.nameProtected'));
       } else if (
         submitError instanceof AvatarUploadError ||
         (submitError instanceof ApiError && submitError.code === 'invalid_avatar')
@@ -129,16 +104,16 @@ export default function CreateProfileScreen() {
       />
       <TextField
         label={t('onboarding.username')}
-        value={usernameInput}
-        onChangeText={(value) => setUsernameInput(value.toLowerCase())}
+        value={usernameField.input}
+        onChangeText={usernameField.setInput}
         maxLength={USERNAME_MAX_LENGTH}
         autoCapitalize="none"
         autoCorrect={false}
         autoComplete="username"
         textContentType="username"
-        error={usernameError}
-        hint={usernameHint}
-        hintTone={isAvailable ? 'success' : 'muted'}
+        error={usernameField.error}
+        hint={usernameField.hint}
+        hintTone={usernameField.hintTone}
       />
       <Checkbox label={t('onboarding.adultConfirm')} checked={isAdult} onChange={setIsAdult} />
       <Checkbox

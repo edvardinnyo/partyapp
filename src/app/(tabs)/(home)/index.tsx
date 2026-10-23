@@ -12,25 +12,29 @@ import {
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { isPartnerProfile } from '@shared/contracts/profile';
 import { MAX_RADIUS_KM } from '@shared/contracts/settings';
-import { compareRecommended } from '@shared/recommendation/score-event';
 import { AppButton } from '@/components/app-button';
 import { AppText } from '@/components/app-text';
 import { Avatar } from '@/components/avatar';
 import { FormMessage } from '@/components/form-message';
 import { AdBanner } from '@/features/events/ad-banner';
 import { EventTile } from '@/features/events/event-tile';
-import { buildHomeGridRows, HOME_GRID } from '@/features/events/home-grid';
+import { buildHomeGridRows, HOME_GRID, selectHomeEvents } from '@/features/events/home-grid';
 import { useNearbyEvents } from '@/features/events/use-nearby-events';
+import { PartnerStatusCard } from '@/features/partners/partner-status-card';
 import { useMyProfile } from '@/features/profile/use-my-profile';
 import { useNow } from '@/lib/use-now';
 import { useAppTheme } from '@/theme';
 
 // F5: profile picture on top, map icon in the top section, recommended events in a grid below.
+// D-008/8, D-008/11: a partner sees every event nearby (no taste) and the state of its application.
 export default function HomeScreen() {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
   const me = useMyProfile();
+  const profile = me.data?.profile;
+  const forPartner = profile ? isPartnerProfile(profile) : false;
   const nearby = useNearbyEvents();
   const now = useNow(30_000);
   const [refreshing, setRefreshing] = useState(false);
@@ -38,17 +42,14 @@ export default function HomeScreen() {
   // Q7: the recommended live and upcoming events, best match first, then the earlier start.
   const rows = useMemo(
     () =>
-      buildHomeGridRows(
-        nearby.events.filter((event) => event.recommended).sort(compareRecommended),
-      ),
-    [nearby.events],
+      buildHomeGridRows(selectHomeEvents(nearby.events, { forPartner, radiusKm: nearby.radiusKm })),
+    [nearby.events, nearby.radiusKm, forPartner],
   );
 
   // P-02: say that nothing is recommended, and suggest a larger distance while the slider allows.
+  const nothingText = forPartner ? t('home.noNearbyEvents') : t('home.noRecommendations');
   const emptyText =
-    nearby.radiusKm < MAX_RADIUS_KM
-      ? `${t('home.noRecommendations')} ${t('home.increaseRadius')}`
-      : t('home.noRecommendations');
+    nearby.radiusKm < MAX_RADIUS_KM ? `${nothingText} ${t('home.increaseRadius')}` : nothingText;
 
   async function refresh() {
     // Nothing to fetch until we know where distances are measured from.
@@ -78,7 +79,7 @@ export default function HomeScreen() {
               <View style={styles.topBarSide} />
               <Link href="/profile/me" asChild>
                 <Pressable accessibilityRole="button" accessibilityLabel={t('home.openProfile')}>
-                  <Avatar uri={me.data?.profile?.avatarUrl} size={72} />
+                  <Avatar uri={profile?.avatarUrl} size={72} />
                 </Pressable>
               </Link>
               <View style={[styles.topBarSide, styles.topBarRight]}>
@@ -93,7 +94,10 @@ export default function HomeScreen() {
                 </Link>
               </View>
             </View>
-            <AppText variant="subtitle">{t('home.recommendedEvents')}</AppText>
+            {profile?.partner ? <PartnerStatusCard partner={profile.partner} /> : null}
+            <AppText variant="subtitle">
+              {forPartner ? t('home.nearbyEvents') : t('home.recommendedEvents')}
+            </AppText>
             {nearby.isApproximate ? (
               <AppText variant="muted">{t('location.approximate')}</AppText>
             ) : null}

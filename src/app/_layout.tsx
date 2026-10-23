@@ -70,6 +70,11 @@ function RootNavigator() {
             name="edit-taste"
             options={{ headerShown: true, title: t('taste.editTitle') }}
           />
+          {/* D-008/4: a rejected partner corrects its application, without a navbar. */}
+          <Stack.Screen
+            name="edit-partner-application"
+            options={{ headerShown: true, title: t('partners.applicationTitle') }}
+          />
           {/* D-004: opened from the own profile, without a navbar, with a back arrow. */}
           <Stack.Screen
             name="settings"
@@ -78,6 +83,11 @@ function RootNavigator() {
         </Stack.Protected>
         {/* Reachable before and after signing in (the sign-up asks to accept it). */}
         <Stack.Screen name="privacy" options={{ headerShown: true, title: t('privacy.title') }} />
+        {/* D-008/12: shown from the partner application. */}
+        <Stack.Screen
+          name="partner-terms"
+          options={{ headerShown: true, title: t('partners.termsTitle') }}
+        />
       </Stack>
     </ThemeProvider>
   );
