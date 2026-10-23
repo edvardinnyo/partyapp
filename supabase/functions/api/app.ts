@@ -223,6 +223,46 @@ function toEventBase(event: StoredEvent) {
   };
 }
 
+/** D-004 rules and D-008/5 protected names; null for a username that breaks the rules. */
+async function usernameAvailability(
+  profiles: ProfileRepository,
+  input: string,
+  userId: string | null,
+) {
+  const parsed = usernameSchema.safeParse(normalizeUsername(input));
+  if (!parsed.success) {
+    return null;
+  }
+  if (await profiles.isUsernameTaken(parsed.data)) {
+    return { available: false, reason: 'taken' };
+  }
+  const protectedNames = await profiles.findProtectedNames();
+  if (clashesWithProtectedNames([parsed.data], protectedNames, userId ?? undefined)) {
+    return { available: false, reason: 'protected' };
+  }
+  return { available: true, reason: null };
+}
+
+/**
+ * Routes that need no signed-in user, only the app's publishable key. D-008/22: a partner fills
+ * in the whole application, username included, before the email code confirms the account.
+ */
+export function createPublicApp({ profiles }: Pick<ApiDeps, 'profiles'>) {
+  const app = new Hono().basePath('/api/public');
+
+  app.get('/usernames/:username', async (c) => {
+    const result = await usernameAvailability(profiles, c.req.param('username'), null);
+    return result ? c.json(result) : c.json(apiError('invalid_input'), 400);
+  });
+
+  app.onError((error, c) => {
+    console.error(error);
+    return c.json(apiError('internal'), 500);
+  });
+
+  return app;
+}
+
 export function createApp({
   profiles,
   partners,
@@ -283,17 +323,8 @@ export function createApp({
   });
 
   app.get('/usernames/:username', async (c) => {
-    const parsed = usernameSchema.safeParse(normalizeUsername(c.req.param('username')));
-    if (!parsed.success) {
-      return c.json(apiError('invalid_input'), 400);
-    }
-    if (await profiles.isUsernameTaken(parsed.data)) {
-      return c.json({ available: false, reason: 'taken' });
-    }
-    if (await isProtected([parsed.data], c.env.userId)) {
-      return c.json({ available: false, reason: 'protected' });
-    }
-    return c.json({ available: true, reason: null });
+    const result = await usernameAvailability(profiles, c.req.param('username'), c.env.userId);
+    return result ? c.json(result) : c.json(apiError('invalid_input'), 400);
   });
 
   app.post('/profile/avatar-upload', async (c) => {

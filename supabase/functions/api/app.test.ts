@@ -6,6 +6,7 @@ import {
   type ApiBindings,
   type AvatarStorage,
   createApp,
+  createPublicApp,
   type EventRepository,
   NEARBY_EVENTS_LIMIT,
   type NearbyEventsQuery,
@@ -823,6 +824,26 @@ describe('protected partner names (D-008/5)', () => {
       available: true,
       reason: null,
     });
+  });
+});
+
+describe('GET /api/public/usernames/:username (D-008/22)', () => {
+  it('answers without a signed-in user, protected names included', async () => {
+    const { as, profiles, partnerRows } = setup();
+    await as(OTHER_USER_ID).post('/partner/application', {
+      ...validApplication,
+      displayName: 'Akvárium Klub',
+      username: 'akvarium',
+    });
+    partnerRows.get(OTHER_USER_ID)!.status = 'approved';
+    const publicApp = createPublicApp({ profiles });
+    const check = async (username: string) =>
+      (await publicApp.request(`/api/public/usernames/${encodeURIComponent(username)}`)).json();
+
+    expect(await check('akvarium')).toEqual({ available: false, reason: 'taken' });
+    expect(await check('akvarium.official')).toEqual({ available: false, reason: 'protected' });
+    expect(await check('fogashaz')).toEqual({ available: true, reason: null });
+    expect((await publicApp.request('/api/public/usernames/ab')).status).toBe(400);
   });
 });
 
