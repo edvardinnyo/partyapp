@@ -112,7 +112,12 @@ Az eseményeket a partnerek (klubok, bárok, koncerthelyszínek, szervezők) mag
   npx supabase secrets set RESEND_API_KEY=<a Resendben létrehozott kulcs> PARTNER_REVIEW_EMAIL=partner@nocturnal.hu
   ```
   A kulcsot a Resend felületén kell létrehozni (API Keys → Create API Key, „Sending access”, a `nocturnal.hu` domainre). Soha nem kerül a repóba vagy a chatbe. Kulcs nélkül a kérelem ugyanúgy elmentődik, csak az e-mail marad el.
-- **Elbírálás:** egyelőre a Supabase felületén: Table Editor → `partners` → `status` (`approved` vagy `rejected`; elutasításnál a `rejection_reason` az indoklás, ezt a partner az appban látja).
+- **Elbírálás (D-008/23):** az appban, admin jogú fiókkal: Beállítások → „Partnerkérelmek”. Jóváhagyás megerősítéssel, elutasítás indoklással; a partner e-mailt kap a döntésről, és a válasza a `PARTNER_REVIEW_EMAIL` címre érkezik. Admin jogot a Supabase SQL Editorában lehet adni (a fióknak már legyen profilja):
+  ```sql
+  insert into public.admins (user_id) select id from public.profiles where username = '<felhasználónév>';
+  -- visszavonás:
+  delete from public.admins where user_id = (select id from public.profiles where username = '<felhasználónév>');
+  ```
 - **Védett nevek:** egy jóváhagyott partner nevét és felhasználónevét, illetve a nagyon hasonlókat (pl. „fogashaz.official”, vagy egy betű eltéréssel) más nem veheti fel. A szabályok: `supabase/functions/_shared/partners/protected-names.ts`.
 
 ## Build (EAS)

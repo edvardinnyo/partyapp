@@ -105,7 +105,7 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
   1. **Partnerregisztráció** a belépés és regisztráció képernyő alján lévő lehetőséggel, **csak e-maillel és jelszóval** (Google nélkül), a céges e-mail-cím ellenőrzése miatt.
   2. **Kért adatok:** cégnév, adószám, a kapcsolattartó neve és telefonszáma, a helyszín; opcionálisan weboldal vagy közösségi oldal.
   3. A **fióktípus** (magánszemély vagy partner) a regisztrációkor dől el, utólag nem változtatható. A partnerfiók külön fiók, külön e-mail-címmel.
-  4. **Jóváhagyás:** a kérelem e-mailben megy a csapat partner-postafiókjára (Rackhost; a cím később). Az e-mailből egy kattintással jóváhagyható vagy elutasítható (aláírt, lejáró linkek), a döntésről a partner is e-mailt kap. Elutasításnál rövid indoklás jár, és a kérelem újra beadható. Jóváhagyásig a partner beléphet és kitöltheti a profilját, de eseményt nem tehet közzé („A kérelmed elbírálás alatt”).
+  4. **Jóváhagyás:** a kérelem e-mailben megy a csapat partner-postafiókjára (Rackhost; a cím később). Az e-mailből egy kattintással jóváhagyható vagy elutasítható (aláírt, lejáró linkek), a döntésről a partner is e-mailt kap. Elutasításnál rövid indoklás jár, és a kérelem újra beadható. Jóváhagyásig a partner beléphet és kitöltheti a profilját, de eseményt nem tehet közzé („A kérelmed elbírálás alatt”). *Az elbírálás helye módosult: az appban történik (D-008/23).*
   5. **Megkülönböztetés:** „Hitelesített partner” pipa a profilon, az eseményeken és a keresőben; magánszemély nem kaphatja meg. Egy jóváhagyott partner nevét és felhasználónevét, illetve a nagyon hasonlókat más nem veheti fel.
   6. **Az esemény adatai:** cím, típus, kezdés és zárás, helyszín (a partner a címet adja meg, a térképre az app teszi), 1–3 műfaj a közös listából (ez határozza meg, kinek ajánljuk), fellépők, jegyár (bruttó, forintban), rövid leírás (legfeljebb 1000 karakter), borítókép.
   7. **Közzététel:** a jóváhagyott partner eseménye azonnal megjelenik. A feladó közzététel után **nem módosíthatja**; az adminok leszedhetik vagy módosíthatják. A felhasználók indoklással bejelenthetik az eseményt.
@@ -125,7 +125,17 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
   20. **Jelölőnégyzetek a partnerregisztrációnál:** a partneri feltételek és az adatvédelmi tájékoztató elfogadása, „Elmúltam 18 éves” nélkül.
   21. **Partner-postafiók:** `partner@nocturnal.hu`.
   22. **Az e-mail-megerősítés a partnerregisztráció végére kerül** (2026-10-23): előbb a belépési adatok és a teljes kérelem, utána a kód, és a kód után a kérelem magától beküldődik. A kód beírásáig a szerveren csak a megerősítetlen fiók van, így aki közben abbahagyja, később ugyanazzal a címmel újra regisztrálhat (a megerősítetlen regisztráció 7 nap után amúgy is törlődik, D-004/9).
-- **Még nyitott (2026-10-23):** a pin kézi igazítása a térképen (javaslat), a jegyvásárlás külön fázisban (javaslat), a „hirdetés” szó jelentésének megerősítése, és hogy az e-mailes jóváhagyás milyen felületen történjen (technikai korlát, I-013).
+- **Kiegészítés (2026-10-23, este):**
+  23. **Elbírálás az appban**, a D-008/4 egy kattintásos e-mailes jóváhagyása helyett (a technikai korlátot lásd I-013-ban). A csapat fiókjai admin jogot kapnak, és a Beállításokban a „Partnerkérelmek” menüben látják a várakozó kérelmeket az ellenőrzendő adatokkal; jóváhagyás megerősítéssel, elutasítás csak indoklással. A döntésről a partner e-mailt kap (magyarul és angolul), az indoklást az appban is látja. Admin jogot csak SQL-lel lehet adni, az appban nincs rá felület (I-014).
+  24. **A pin kézi igazítása:** igen, a 4b-ben. Az app a partner által megadott címből teszi le a pint, a partner szükség esetén odébb húzhatja.
+  25. **Jegyvásárlás külön fázisban** (D-008/15): a 7. fázis után, a kiadás előtt. Addig az eseményen a jegyár látszik, a „Jegyvásárlás” gomb pedig „Hamarosan elérhető” üzenetet ad.
+  26. **„Hirdetés”** = a Home hirdetési sávjai (D-007/3). Az eseményeket a partnerek hozzák létre, és ezek a Home eseményei között jelennek meg. A hirdetési sávok tartalma és működése még nyitott (4b előtt).
+
+### D-009 — Magánszemély-regisztráció: az e-mail-kód a végén
+
+- **Dátum:** 2026-10-23
+- **Érintett:** F6, D-004, D-008/22
+- **Döntés:** a magánszemélyek regisztrációja is a partnerekével azonos sorrendet követi. Előbb a belépési adatok és a profil (név, felhasználónév, profilkép, „Elmúltam 18 éves”, adatvédelmi tájékoztató), utána a szinkron-képernyő és a műfajválasztás, a 6 jegyű kód a végén; a kód beírása után a profil és az ízlés magától mentődik. A kódig csak a megerősítetlen fiók van a szerveren, így aki közben abbahagyja, később ugyanazzal a címmel újrakezdheti. A Google-belépés menete nem változott.
 
 ---
 
@@ -346,7 +356,7 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
 - **Adószám:** formátum (8-1-2 számjegy), áfakód 1–5 és ellenőrző számjegy; valódi, nyilvános adószámokon tesztelve. A telefonszám és a weboldal is ellenőrzött; a weboldal elé az app `https://`-t tesz, ha hiányzik.
 - **Védett nevek (D-008/5):** csak jóváhagyott partneré. Ütközik az ugyanolyan név bármilyen írásmóddal (kis- és nagybetű, ékezet és írásjelek nélkül), a legalább 5 karakteres partnernevet tartalmazó név, és a legalább 6 karakteres névtől egy betűben eltérő név. A felhasználónév-ellenőrzés `protected` okot ad vissza, a profil és a kérelem `name_protected` hibát. Visszamenőleg senkit nem nevez át.
 - **E-mail a csapatnak:** a Resend HTTP API-n, `no-reply@nocturnal.hu` feladóval, a `PARTNER_REVIEW_EMAIL` címre; a válasz a partner fiókjának címére megy. A kérelmező minden adata HTML-escape-elve kerül az e-mailbe. Ha a küldés nem sikerül, a kérelem megmarad, a hibát a függvény adatok nélkül naplózza. A két secretet (`RESEND_API_KEY`, `PARTNER_REVIEW_EMAIL`) a csapat állítja be.
-- **Elbírálás (átmenetileg):** a Supabase Table Editorban. Az e-mailes, egy kattintásos jóváhagyáshoz nyitott kérdés, hol legyen a gomb: a Supabase alapdomainjén az Edge Function nem szolgálhat ki HTML-oldalt (a `text/html` válasz `text/plain` lesz, csak fizetős egyedi domainnel működne), egy sima link pedig önmagában veszélyes, mert a levelezők linkellenőrzői megnyithatják.
+- **Elbírálás (átmenetileg; felváltotta az I-014):** a Supabase Table Editorban. Az e-mailes, egy kattintásos jóváhagyáshoz nyitott kérdés, hol legyen a gomb: a Supabase alapdomainjén az Edge Function nem szolgálhat ki HTML-oldalt (a `text/html` válasz `text/plain` lesz, csak fizetős egyedi domainnel működne), egy sima link pedig önmagában veszélyes, mert a levelezők linkellenőrzői megnyithatják.
 - **App:** partnerregisztráció a belépés és a regisztráció alján; közös `useUsernameField` hook; ugyanaz a partner-űrlap az első kérelemhez és a javításhoz; a Home-on állapotkártya (elbírálás alatt, illetve elutasítva indoklással és „Kérelem javítása” gombbal). A partner a távolságon belüli összes eseményt látja kezdés szerint; a profilja pipával, bemutatkozással és címmel jelenik meg, „neuronok” és látogatott helyek nélkül; a Beállításokban nincs ízlés.
 - **CSV-import kivezetve (E-003):** a script, a mintafájl, a CSV-feldolgozó és az időzóna-modul törölve; az `import_events` függvény és a mintaesemények az adatbázisból is (migráció). Az `events` és a `venues` tábla és az élő értesítés marad a 4b-hez.
 - **Tesztek:** 133 (adószám, védett nevek, értesítő e-mail, az új API-útvonalak, a partnerregisztráció, az elutasítás és javítás, a hitelesített profil).
@@ -355,3 +365,11 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
   - Ha a cím már egy korábbi, félbehagyott fiókhoz tartozik, az app belépésre küld; belépés után a most kitöltött kérelem megy el.
   - A felhasználónév ellenőrzése belépés nélkül is működik: `GET /api/public/usernames/:username`, csak az app nyilvános kulcsával (publishable key); a többi útvonal továbbra is bejelentkezést kér.
   - Összesen 138 teszt.
+
+### I-014 — Elbírálás az appban (D-008/23, 2026-10-23)
+
+- **Adatmodell:** új `admins` tábla (`user_id` → `profiles`, a profillal együtt törlődik), RLS bekapcsolva, szabályok nélkül. Admin jogot csak SQL-lel lehet adni (README), az API-nak nincs útja a módosítására.
+- **API:** `GET /admin/partner-applications` — a várakozó kérelmek a legrégebbitől, a nyilvános profillal, a logóval és a fiók e-mail-címével (ezt az API az `auth.users` táblából olvassa). `POST /admin/partner-applications/:userId/decision` — `approve`, vagy `reject` 1–500 karakteres indoklással. Nem adminnak 403. Csak elbírálás alatt álló kérelemről lehet dönteni; a feltétel magában az adatbázis-módosításban van, így két egyidejű döntésből csak az egyik megy át, a másik 404-et kap, és második e-mail sem megy ki. A profilválasz új mezője: `isAdmin`.
+- **E-mail a partnernek:** a döntésről, magyarul és angolul, a partner fiókjának címére; a válasz a `PARTNER_REVIEW_EMAIL` postafiókba érkezik. Az indoklás HTML-escape-elve kerül bele. Ha a küldés nem sikerül, a döntés megmarad (a partner az appban is látja). A csapatnak szóló e-mail mostantól az appba irányít: „Beállítások → Partnerkérelmek”.
+- **App:** a Beállításokban „Nocturnal csapat” szakasz, csak adminnak. A „Partnerkérelmek” lista (logó, név, cégnév, a beküldés ideje) és a kérelem oldala: minden ellenőrzendő adat kijelölhető szövegként, ellenőrzési tipp, „Jóváhagyás” megerősítéssel, „Elutasítás” kötelező indoklással. Mindkettő navbar nélkül, mint a Beállítások. Ha a kérelemről közben már döntöttek, az app kiírja.
+- **Tesztek:** összesen 154 (az új API-útvonalak jogosultsággal, kétszeri döntéssel és e-mail-hibával; a döntési e-mail; a menü csak adminnak; jóváhagyás és elutasítás az appban). A migrációt visszagörgetett tranzakcióban a valódi adatbázison is kipróbáltam.
