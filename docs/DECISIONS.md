@@ -83,7 +83,7 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
 - **Dátum:** 2026-10-20
 - **Érintett:** F1, F5, Q3, Q7, Q8, Q19, P-01, P-03
 - **Döntések:**
-  1. **Eseményforrás (Q3, P-03):** egyelőre a csapat tölti fel az eseményeket táblázatból (CSV), **Budapesttel** indulunk. A rendszer úgy épül, hogy később a partnercégek (jegyértékesítők) adatfolyamára **csak forrást kelljen váltani**: minden forrás ugyanabba az egységes formába alakítja az eseményeit, és ugyanazon az úton kerülnek az adatbázisba.
+  1. **Eseményforrás (Q3, P-03; 2026-10-23-án felülírta a D-008):** egyelőre a csapat tölti fel az eseményeket táblázatból (CSV), **Budapesttel** indulunk. A rendszer úgy épül, hogy később a partnercégek (jegyértékesítők) adatfolyamára **csak forrást kelljen váltani**: minden forrás ugyanabba az egységes formába alakítja az eseményeit, és ugyanazon az úton kerülnek az adatbázisba.
   2. **„Live” megjelenítés:** mindig a friss, éppen zajló és közelgő események látszanak; a Home és a térkép automatikusan frissül, és egy új vagy módosított esemény azonnal megjelenik.
   3. **Home-rács (Q7):** az ajánlott zajló és közelgő események, egyezés szerint rendezve, egyenlő egyezésnél a korábbi kezdés előre. **Kb. minden 6. esemény után egy teljes szélességű hirdetési banner**; egyelőre helykitöltő, a hirdetések forrása később külön döntés.
   4. **Eseményoldal (Q8):** helyszín, időpont, műfajok, fellépők, „Megnyitás a térképen”, valamint egy **„Jegyvásárlás”** gomb. Ez egyelőre „Hamarosan elérhető” üzenetet ad; a partnerségek után a partner jegyoldalára visz.
@@ -96,6 +96,29 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
   10. **Távolság-kör a térképen** (jóváhagyott javaslat): a beállított távolság körként látszik a pozíciód körül, és a csúszkával együtt változik.
   11. **„Vissza a pozíciómhoz” gomb a térképen** (jóváhagyott javaslat): mindkét platformon ugyanaz a saját gomb (az Android beépített gombja ki van kapcsolva); a pozíciódra áll vissza, a beállított távolságnyi nézettel. Csak akkor látszik, ha ismert a pozíciód.
 
+### D-008 — Partnerfiókok: a szervezők maguk töltik fel az eseményeiket (a 4. fázis átdolgozása)
+
+- **Dátum:** 2026-10-23
+- **Érintett:** F1, F4, F5, F6, Q3, Q15, D-007
+- **Háttér:** az események forrása a csapat által feltöltött táblázat helyett a partnerek (cégek, szervezők) saját fiókja. A D-007/1 (CSV-import) ezzel megszűnik.
+- **Döntések:**
+  1. **Partnerregisztráció** a belépés és regisztráció képernyő alján lévő lehetőséggel, **csak e-maillel és jelszóval** (Google nélkül), a céges e-mail-cím ellenőrzése miatt.
+  2. **Kért adatok:** cégnév, adószám, a kapcsolattartó neve és telefonszáma, a helyszín; opcionálisan weboldal vagy közösségi oldal.
+  3. A **fióktípus** (magánszemély vagy partner) a regisztrációkor dől el, utólag nem változtatható. A partnerfiók külön fiók, külön e-mail-címmel.
+  4. **Jóváhagyás:** a kérelem e-mailben megy a csapat partner-postafiókjára (Rackhost; a cím később). Az e-mailből egy kattintással jóváhagyható vagy elutasítható (aláírt, lejáró linkek), a döntésről a partner is e-mailt kap. Elutasításnál rövid indoklás jár, és a kérelem újra beadható. Jóváhagyásig a partner beléphet és kitöltheti a profilját, de eseményt nem tehet közzé („A kérelmed elbírálás alatt”).
+  5. **Megkülönböztetés:** „Hitelesített partner” pipa a profilon, az eseményeken és a keresőben; magánszemély nem kaphatja meg. Egy jóváhagyott partner nevét és felhasználónevét, illetve a nagyon hasonlókat más nem veheti fel.
+  6. **Az esemény adatai:** cím, típus, kezdés és zárás, helyszín (a partner a címet adja meg, a térképre az app teszi), 1–3 műfaj a közös listából (ez határozza meg, kinek ajánljuk), fellépők, jegyár (bruttó, forintban), rövid leírás (legfeljebb 1000 karakter), borítókép.
+  7. **Közzététel:** a jóváhagyott partner eseménye azonnal megjelenik. A feladó közzététel után **nem módosíthatja**; az adminok leszedhetik vagy módosíthatják. A felhasználók indoklással bejelenthetik az eseményt.
+  8. Az **„Új esemény” gomb a partner Home képernyőjén** van, az eseményekkel egy helyen.
+  9. **Képek:** a Home-on és az eseményoldalon a partner borítóképe látszik; a csevegőtér fejléce a csevegőtérben legutóbb megosztott kép (F2).
+  10. **Partnerprofil:** logó, név pipával, rövid bemutatkozás, cím, követők, közelgő események és posztok; a 3 műfaj-„neuron” nem jelenik meg. A **partnerposztok a 7. fázisban** készülnek, a sima profilok posztjaival közös rendszerben.
+  11. A partner **nem választ ízlést**; a Home-on látja az eseményeket (a versenytársakét is).
+  12. **Partneri felhasználási feltételek:** egyelőre helykitöltő szöveg; kiadás előtt jogásszal kell rendezni (RELEASE_CHECKLIST).
+  13. **Megszűnik:** a CSV-import és a mintaesemények. A jegyértékesítők adatfolyama később a partnerfiók mellett működhet; egyelőre a partnerfiók az egyetlen út.
+  14. **Ütemezés:** 4a — partnerregisztráció, jóváhagyás, védett név; 4b — eseményfeltöltés, kép, ár, leírás, bejelentés.
+  15. **Cél a jegyvásárlásnál:** az appon belül, a jegy Apple Walletbe kerül, és e-mailben (nyomtatható formában) is megérkezik. A megvalósítás külön tervezést igényel.
+- **Még nyitott (2026-10-23):** a cím alapján elhelyezett pont javíthatósága, a jegyvásárlás ütemezése, a partner javítási és lemondási lehetősége, a „hirdetés” szó jelentése, a partner Home-rácsának tartalma, a partner nyilvános neve és felhasználóneve, a partnerregisztráció jelölőnégyzetei.
+
 ---
 
 ## Elutasított javaslatok
@@ -105,6 +128,18 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
 - **Dátum:** 2026-10-20
 - **Javaslat:** legalább 8 karakter, kisbetűvel, nagybetűvel és számmal (Supabase → Password Requirements).
 - **Döntés:** elutasítva. Marad a **legalább 8 karakter**, karakterszabály nélkül. A jelszavakat a Supabase bcrypt-lenyomatként tárolja, olvasható formában sehol nincsenek meg.
+
+### E-002 — Hamis profil bejelentése (leszedetési kérelem)
+
+- **Dátum:** 2026-10-23
+- **Javaslat:** „Hamis profil bejelentése” lehetőség minden profilon, e-mail az adminnak, felfüggesztési lehetőséggel.
+- **Döntés:** elutasítva. A „Hitelesített partner” pipa elég megkülönböztető jel. (Az események bejelentése megmarad, D-008/7.) Megjegyzés: az App Store a felhasználói tartalomhoz bejelentést és letiltást kér (Q23 a); ezt a kiadás előtt újra elő kell venni.
+
+### E-003 — A CSV-import és a mintaesemények megtartása
+
+- **Dátum:** 2026-10-23
+- **Javaslat:** a CSV-import maradjon admin-eszköznek, a mintaesemények pedig a teszteléshez, amíg nincs valódi partner.
+- **Döntés:** elutasítva. Mindkettő megszűnik (D-008/13).
 
 ---
 
