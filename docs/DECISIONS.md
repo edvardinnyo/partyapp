@@ -117,7 +117,14 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
   13. **Megszűnik:** a CSV-import és a mintaesemények. A jegyértékesítők adatfolyama később a partnerfiók mellett működhet; egyelőre a partnerfiók az egyetlen út.
   14. **Ütemezés:** 4a — partnerregisztráció, jóváhagyás, védett név; 4b — eseményfeltöltés, kép, ár, leírás, bejelentés.
   15. **Cél a jegyvásárlásnál:** az appon belül, a jegy Apple Walletbe kerül, és e-mailben (nyomtatható formában) is megérkezik. A megvalósítás külön tervezést igényel.
-- **Még nyitott (2026-10-23):** a cím alapján elhelyezett pont javíthatósága, a jegyvásárlás ütemezése, a partner javítási és lemondási lehetősége, a „hirdetés” szó jelentése, a partner Home-rácsának tartalma, a partner nyilvános neve és felhasználóneve, a partnerregisztráció jelölőnégyzetei.
+- **Kiegészítés (2026-10-23), a maradék kérdésekre adott válaszok:**
+  16. **Közzététel előtt előnézet** „Közzététel után csak mi módosíthatjuk” figyelmeztetéssel; a tényleges közzététel gomb **5 másodpercig nem nyomható**, ezt animáció jelzi, hogy biztosan elolvassák. Utólagos javításhoz „Módosítás kérése” gomb (indoklással, e-mailben a csapatnak); **lemondani a partner maga tudja**.
+  17. **Bejelentett esemény:** a csapat az e-mailből egy kattintással leszedheti; módosítani egyelőre a Supabase felületén lehet, külön admin-felület nélkül.
+  18. **A partner Home-ja:** a távolságon belüli összes esemény, kezdés szerint, a sajátjai kiemelve.
+  19. **Nyilvános név:** a partner nyilvános nevet (márkanevet) és felhasználónevet ad meg; a cégnevet és az adószámot csak a csapat látja.
+  20. **Jelölőnégyzetek a partnerregisztrációnál:** a partneri feltételek és az adatvédelmi tájékoztató elfogadása, „Elmúltam 18 éves” nélkül.
+  21. **Partner-postafiók:** `partner@nocturnal.hu`.
+- **Még nyitott (2026-10-23):** a pin kézi igazítása a térképen (javaslat), a jegyvásárlás külön fázisban (javaslat), a „hirdetés” szó jelentésének megerősítése, és hogy az e-mailes jóváhagyás milyen felületen történjen (technikai korlát, I-013).
 
 ---
 
@@ -303,7 +310,7 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
   - A sorokat a (forrás, külső azonosító) pár azonosítja: újratöltéskor frissülnek, nem duplikálódnak, a változatlan sorokhoz nem nyúl.
   - A `--prune` a forrás azon, még le nem zárult eseményeit törli, amelyek hiányoznak a fájlból (pl. lemondott esemény). A múltbeli események megmaradnak a lezárt események részhez (F3).
   - Egy partner adatfolyamához csak egy új átalakító kell (később pl. egy ütemezett Edge Functionben); az adatbázis oldala változatlan. A függvényt az appok nem hívhatják.
-- **CSV-import:** `npm run events:import -- <fájl.csv>`, a `--dry-run`, `--prune` és `--source=` kapcsolókkal. A leírás a README-ben van.
+- **CSV-import** (2026-10-23-án megszűnt, E-003): `npm run events:import -- <fájl.csv>`, a `--dry-run`, `--prune` és `--source=` kapcsolókkal. A leírás a README-ben van.
   - Az időpontok budapesti helyi idő szerint értendők (a nyári és a téli időszámítást is kezeli). A magyar Excel formátumát is elfogadja: pontosvessző, tizedesvessző, `2026. 10. 24. 22:00`.
   - Ha bármi hibás, semmit nem tölt fel, és soronként kiírja a hibákat. A Supabase CLI-n keresztül fut, adatbázis-jelszó nem kell hozzá.
   - **Mintaadat:** `data/events/budapest-sample.csv`, 42 kitalált „Minta” esemény 16 kitalált helyszínen Budapesten és környékén (2026. október 16. – november 9.). Ezek külön forrásként (`sample`) vannak az adatbázisban, így a valódi adatoktól függetlenül törölhetők.
@@ -329,3 +336,16 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
 - **Home-rács:** soronként 2 esemény; 6 esemény után egy teljes szélességű „Hirdetés” helykitöltő, de csak események között (D-007/3). Ha nincs ajánlott esemény, a D-007/7 szerinti üzenet jelenik meg.
 - **Eseményoldal (Q8):** a Home fülön belül van, így a navbar látszik (F7). Tartalma: cím, „Most zajlik” jelzés, időpont, helyszín és cím, műfajok, fellépők, „Jegyvásárlás” („Hamarosan elérhető”) és „Megnyitás a térképen” (a térkép a helyszínre nagyít).
 - **Tesztek:** egységtesztek a CSV-feldolgozásra, az időzóna-átváltásra, az ajánlási pontszámra, az életciklusra, a rács felosztására, a csoportosításra és a dátumformázásra; API-tesztek az új útvonalakra; folyamattesztek (rács hirdetéssel, eseményoldal jegygombbal, működés helyengedély nélkül, a csúszka). Összesen 119 teszt. A migrációkat egy visszagörgetett tranzakcióban a valódi adatbázison is kipróbáltam, mielőtt felkerültek.
+
+### I-013 — Partnerfiókok, 4a (2026-10-23)
+
+- **Adatmodell:** `profiles.account_type` (`person` vagy `partner`; a meglévő profilok magánszemélyek lettek). Az „Elmúltam 18 éves” megerősítés csak magánszemélynél kötelező, ezt az adatbázis is ellenőrzi. Új `partners` tábla: cégadatok, állapot (`pending`, `approved`, `rejected`), elutasítási indoklás, a partneri feltételek elfogadásának ideje és verziója (`draft-2026-10`), bemutatkozás. RLS bekapcsolva, szabályok nélkül.
+- **Fióktípus a regisztrációnál:** a partnerregisztráció a Supabase-felhasználó adataiba írja a szándékot (`account_type: partner`), így a kód megerősítése után a partner-űrlap nyílik meg. A típus a profil létrejöttekor végleges; az API-nak nincs útja a módosítására.
+- **API:** `POST /partner/application` (első kérelem: profil és partneradatok egy tranzakcióban), `PUT /partner/application` (csak elutasítás után). A profilválaszban `accountType`, `verified` és a saját partneradatok. A partner nem választhat ízlést, és a nyilvános nevét a profilszerkesztésben nem módosíthatja (csak a logót és a bemutatkozást); magánszemélynek nincs bemutatkozása.
+- **Adószám:** formátum (8-1-2 számjegy), áfakód 1–5 és ellenőrző számjegy; valódi, nyilvános adószámokon tesztelve. A telefonszám és a weboldal is ellenőrzött; a weboldal elé az app `https://`-t tesz, ha hiányzik.
+- **Védett nevek (D-008/5):** csak jóváhagyott partneré. Ütközik az ugyanolyan név bármilyen írásmóddal (kis- és nagybetű, ékezet és írásjelek nélkül), a legalább 5 karakteres partnernevet tartalmazó név, és a legalább 6 karakteres névtől egy betűben eltérő név. A felhasználónév-ellenőrzés `protected` okot ad vissza, a profil és a kérelem `name_protected` hibát. Visszamenőleg senkit nem nevez át.
+- **E-mail a csapatnak:** a Resend HTTP API-n, `no-reply@nocturnal.hu` feladóval, a `PARTNER_REVIEW_EMAIL` címre; a válasz a partner fiókjának címére megy. A kérelmező minden adata HTML-escape-elve kerül az e-mailbe. Ha a küldés nem sikerül, a kérelem megmarad, a hibát a függvény adatok nélkül naplózza. A két secretet (`RESEND_API_KEY`, `PARTNER_REVIEW_EMAIL`) a csapat állítja be.
+- **Elbírálás (átmenetileg):** a Supabase Table Editorban. Az e-mailes, egy kattintásos jóváhagyáshoz nyitott kérdés, hol legyen a gomb: a Supabase alapdomainjén az Edge Function nem szolgálhat ki HTML-oldalt (a `text/html` válasz `text/plain` lesz, csak fizetős egyedi domainnel működne), egy sima link pedig önmagában veszélyes, mert a levelezők linkellenőrzői megnyithatják.
+- **App:** partnerregisztráció a belépés és a regisztráció alján; közös `useUsernameField` hook; ugyanaz a partner-űrlap az első kérelemhez és a javításhoz; a Home-on állapotkártya (elbírálás alatt, illetve elutasítva indoklással és „Kérelem javítása” gombbal). A partner a távolságon belüli összes eseményt látja kezdés szerint; a profilja pipával, bemutatkozással és címmel jelenik meg, „neuronok” és látogatott helyek nélkül; a Beállításokban nincs ízlés.
+- **CSV-import kivezetve (E-003):** a script, a mintafájl, a CSV-feldolgozó és az időzóna-modul törölve; az `import_events` függvény és a mintaesemények az adatbázisból is (migráció). Az `events` és a `venues` tábla és az élő értesítés marad a 4b-hez.
+- **Tesztek:** 133 (adószám, védett nevek, értesítő e-mail, az új API-útvonalak, a partnerregisztráció, az elutasítás és javítás, a hitelesített profil).
