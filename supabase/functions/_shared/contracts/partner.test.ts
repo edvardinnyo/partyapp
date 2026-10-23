@@ -4,6 +4,8 @@ import {
   normalizeTaxNumber,
   normalizeWebsite,
   partnerApplicationInputSchema,
+  TAX_NUMBER_EXAMPLE,
+  taxNumberProblem,
 } from './partner.ts';
 
 describe('Hungarian tax numbers', () => {
@@ -21,6 +23,17 @@ describe('Hungarian tax numbers', () => {
     expect(isValidTaxNumber('10773381-7-44')).toBe(false);
     expect(isValidTaxNumber('1077338-2-44')).toBe(false);
     expect(isValidTaxNumber('HU10773381')).toBe(false);
+  });
+
+  it('tells a wrong shape from a check digit that does not fit', () => {
+    expect(taxNumberProblem('1234')).toBe('format');
+    expect(taxNumberProblem('12345676-7-42')).toBe('format');
+    expect(taxNumberProblem('12345678-2-42')).toBe('checkDigit');
+    expect(taxNumberProblem('10773381-2-44')).toBeNull();
+  });
+
+  it('shows an example in the form that is itself valid', () => {
+    expect(taxNumberProblem(TAX_NUMBER_EXAMPLE)).toBeNull();
   });
 });
 

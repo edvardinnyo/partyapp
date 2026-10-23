@@ -386,7 +386,7 @@ describe('partner accounts (D-008)', () => {
     expect(navbarLabels()).toEqual(['Csevegőtér', 'Home', 'Profilkereső']);
   });
 
-  it('refuses a tax number that cannot be right', async () => {
+  it('explains a wrong tax number, and accepts the example it shows', async () => {
     startSignedInAs(USER_ID);
     mockedApi.getMe.mockResolvedValue({ profile: null });
     auth.onAuthStateChange.mockImplementation((callback) => {
@@ -395,10 +395,23 @@ describe('partner accounts (D-008)', () => {
       return { data: { subscription: { unsubscribe: jest.fn() } } } as never;
     });
     await renderRouter(APP_DIR);
+    const field = await screen.findByLabelText('Adószám');
+    expect(screen.getByText('Például 12345676-2-42. Csak mi látjuk.')).toBeOnTheScreen();
 
-    await fireEvent.changeText(await screen.findByLabelText('Adószám'), '12345678-2-44');
+    // No complaint while typing; then a check digit that cannot be right.
+    await fireEvent.changeText(field, '1234567');
+    expect(screen.queryByText(/^Az adószám formája/)).toBeNull();
+    await fireEvent.changeText(field, '12345678-2-44');
+    expect(screen.getByText(/^Ilyen adószám nem létezhet/)).toBeOnTheScreen();
 
-    expect(screen.getByText(/^Ellenőrizd az adószámot/)).toBeOnTheScreen();
+    // The example under the field is valid, so it also works as test data.
+    await fireEvent.changeText(field, '12345676-2-42');
+    expect(screen.queryByText(/^Ilyen adószám nem létezhet/)).toBeNull();
+
+    // A wrong shape gets its own explanation once the field is left.
+    await fireEvent.changeText(field, '1234-5');
+    await fireEvent(field, 'blur');
+    expect(screen.getByText(/^Az adószám formája/)).toBeOnTheScreen();
   });
 
   it('shows a rejected partner the reason and takes a corrected application', async () => {

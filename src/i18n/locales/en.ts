@@ -161,8 +161,11 @@ export const en: Translation = {
     companyName: 'Company name',
     companyNameHint: 'The official name, e.g. Fogasház Kft. Only we see it.',
     taxNumber: 'Tax number',
-    taxNumberHint: 'For example 12345678-2-42. Only we see it.',
-    taxNumberInvalid: 'Please check the tax number (format: 12345678-2-42).',
+    taxNumberHint: 'For example {{example}}. Only we see it.',
+    taxNumberFormat:
+      'A tax number has 8 digits, a dash, a digit from 1 to 5, a dash and 2 digits (e.g. {{example}}).',
+    taxNumberCheckDigit:
+      'This tax number cannot exist: the 8th digit is a check digit and does not fit the others. Please check the digits.',
     contactName: 'Contact person',
     contactPhone: 'Contact phone number',
     phoneInvalid: 'Please check the phone number.',

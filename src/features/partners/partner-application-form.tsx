@@ -5,8 +5,9 @@ import { useTranslation } from 'react-i18next';
 
 import {
   isValidPhone,
-  isValidTaxNumber,
   normalizeTaxNumber,
+  TAX_NUMBER_EXAMPLE,
+  taxNumberProblem,
   websiteSchema,
 } from '@shared/contracts/partner';
 import {
@@ -52,6 +53,7 @@ export function PartnerApplicationForm(props: PartnerApplicationFormProps) {
   );
   const [companyName, setCompanyName] = useState(previous?.companyName ?? '');
   const [taxNumber, setTaxNumber] = useState(previous?.taxNumber ?? '');
+  const [taxNumberLeft, setTaxNumberLeft] = useState(false);
   const [contactName, setContactName] = useState(previous?.contactName ?? '');
   const [contactPhone, setContactPhone] = useState(previous?.contactPhone ?? '');
   const [address, setAddress] = useState(previous?.address ?? '');
@@ -63,7 +65,13 @@ export function PartnerApplicationForm(props: PartnerApplicationFormProps) {
   const logo = useAvatarPicker(setError);
   const usernameField = useUsernameField();
 
-  const taxNumberValid = isValidTaxNumber(normalizeTaxNumber(taxNumber));
+  const taxProblem = taxNumberProblem(normalizeTaxNumber(taxNumber));
+  const taxNumberValid = taxProblem === null;
+  // Not while typing: once all 11 digits are there, or after leaving the field.
+  const showTaxProblem =
+    required(taxNumber) &&
+    taxProblem !== null &&
+    (taxNumberLeft || taxNumber.replace(/\D/g, '').length >= 11);
   const phoneValid = isValidPhone(contactPhone.trim());
   const websiteValid = !required(website) || websiteSchema.safeParse(website).success;
 
@@ -190,8 +198,18 @@ export function PartnerApplicationForm(props: PartnerApplicationFormProps) {
         onChangeText={setTaxNumber}
         maxLength={20}
         keyboardType="numbers-and-punctuation"
-        error={required(taxNumber) && !taxNumberValid ? t('partners.taxNumberInvalid') : null}
-        hint={t('partners.taxNumberHint')}
+        onBlur={() => setTaxNumberLeft(true)}
+        error={
+          showTaxProblem
+            ? t(
+                taxProblem === 'checkDigit'
+                  ? 'partners.taxNumberCheckDigit'
+                  : 'partners.taxNumberFormat',
+                { example: TAX_NUMBER_EXAMPLE },
+              )
+            : null
+        }
+        hint={t('partners.taxNumberHint', { example: TAX_NUMBER_EXAMPLE })}
       />
       <TextField
         label={t('partners.contactName')}

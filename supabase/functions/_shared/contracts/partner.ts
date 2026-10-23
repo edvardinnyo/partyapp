@@ -5,6 +5,10 @@ import { z } from 'zod';
 import { displayNameSchema, usernameSchema } from './profile.ts';
 
 const TAX_NUMBER_WEIGHTS = [9, 7, 3, 1, 9, 7, 3];
+const TAX_NUMBER_PATTERN = /^(\d{8})-[1-5]-\d{2}$/;
+
+/** The example in the form's hint. A test keeps it valid, so it also works as test data. */
+export const TAX_NUMBER_EXAMPLE = '12345676-2-42';
 
 /** "12345678242", "12345678 2 42" and "12345678-2-42" all become "12345678-2-42". */
 export function normalizeTaxNumber(input: string): string {
@@ -19,7 +23,7 @@ export function normalizeTaxNumber(input: string): string {
  * code (1–5) and a 2-digit area code. The check digit makes most typos detectable.
  */
 export function isValidTaxNumber(value: string): boolean {
-  const match = /^(\d{8})-[1-5]-\d{2}$/.exec(value);
+  const match = TAX_NUMBER_PATTERN.exec(value);
   if (!match?.[1]) {
     return false;
   }
@@ -29,6 +33,16 @@ export function isValidTaxNumber(value: string): boolean {
     0,
   );
   return (10 - (sum % 10)) % 10 === digits[7];
+}
+
+export type TaxNumberProblem = 'format' | 'checkDigit';
+
+/** Why a tax number is refused: its shape, or a check digit that does not fit (a typo). */
+export function taxNumberProblem(value: string): TaxNumberProblem | null {
+  if (!TAX_NUMBER_PATTERN.test(value)) {
+    return 'format';
+  }
+  return isValidTaxNumber(value) ? null : 'checkDigit';
 }
 
 export const taxNumberSchema = z.string().transform(normalizeTaxNumber).refine(isValidTaxNumber);

@@ -157,8 +157,11 @@ export const hu = {
     companyName: 'Cégnév',
     companyNameHint: 'A hivatalos név, pl. Fogasház Kft. Csak mi látjuk.',
     taxNumber: 'Adószám',
-    taxNumberHint: 'Például 12345678-2-42. Csak mi látjuk.',
-    taxNumberInvalid: 'Ellenőrizd az adószámot (formátum: 12345678-2-42).',
+    taxNumberHint: 'Például {{example}}. Csak mi látjuk.',
+    taxNumberFormat:
+      'Az adószám formája: 8 számjegy, kötőjel, egy 1 és 5 közötti számjegy, kötőjel, 2 számjegy (pl. {{example}}).',
+    taxNumberCheckDigit:
+      'Ilyen adószám nem létezhet: a 8. számjegy ellenőrző szám, és nem illik a többihez. Nézd meg újra a számjegyeket.',
     contactName: 'Kapcsolattartó neve',
     contactPhone: 'Kapcsolattartó telefonszáma',
     phoneInvalid: 'Ellenőrizd a telefonszámot.',
