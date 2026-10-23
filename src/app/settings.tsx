@@ -86,6 +86,12 @@ export default function SettingsScreen() {
           <ListRow label={t('settings.editTaste')} href="/edit-taste" />
         </Section>
       )}
+      {/* D-008/23: only the team's accounts review partner applications. */}
+      {profile?.isAdmin ? (
+        <Section title={t('admin.section')}>
+          <ListRow label={t('admin.applications')} href="/partner-applications" />
+        </Section>
+      ) : null}
       <Section title={t('settings.account')}>
         <FormMessage message={error} />
         <AppButton

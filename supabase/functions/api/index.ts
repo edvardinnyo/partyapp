@@ -3,6 +3,7 @@ import { withSupabase } from '@supabase/server';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
+import { createAdminRepository } from './admin-repository.ts';
 import { createApp, createPublicApp } from './app.ts';
 import { createEventRepository } from './event-repository.ts';
 import { createPartnerNotifier } from './partner-notifier.ts';
@@ -26,6 +27,7 @@ const app = createApp({
     apiKey: Deno.env.get('RESEND_API_KEY'),
     to: Deno.env.get('PARTNER_REVIEW_EMAIL'),
   }),
+  admins: createAdminRepository(db),
   tastes: createTasteRepository(db),
   settings: createSettingsRepository(db),
   events: createEventRepository(db),

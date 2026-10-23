@@ -201,6 +201,28 @@ export const en: Translation = {
     upcomingEvents: 'Upcoming events',
     upcomingEventsPlaceholder: 'The partner’s upcoming events',
   },
+  admin: {
+    section: 'Nocturnal team',
+    applications: 'Partner applications',
+    application: 'Partner application',
+    noApplications: 'No partner application is waiting for a decision.',
+    submittedAt: 'Submitted: {{date}}',
+    company: 'Company details',
+    website: 'Website',
+    accountEmail: 'Account email address',
+    checks:
+      'Check the company name and the tax number (e-cegjegyzek.hu, the tax authority’s tax number lookup), and whether the account’s email address is on the company’s own domain.',
+    approve: 'Approve',
+    approveConfirmTitle: 'Approve the application?',
+    approveConfirmMessage:
+      '{{name}} becomes a verified partner, its name becomes protected, and it gets an email about the decision.',
+    reject: 'Reject',
+    rejectionReason: 'Reason for the rejection',
+    rejectionReasonHint: 'The partner sees this in the app and in the email.',
+    rejectionReasonRequired: 'Write down why you reject the application.',
+    sendRejection: 'Send rejection',
+    alreadyDecided: 'Someone has already decided this application.',
+  },
   privacy: {
     title: 'Privacy notice',
     draft:

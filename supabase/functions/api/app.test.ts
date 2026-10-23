@@ -3,6 +3,7 @@
  */
 import {
   type Accounts,
+  type AdminRepository,
   type ApiBindings,
   type AvatarStorage,
   createApp,
@@ -13,7 +14,9 @@ import {
   type NewPartner,
   type NewProfile,
   PARTNER_TERMS_VERSION,
+  type PendingApplication,
   type PartnerApplicationNotice,
+  type PartnerDecisionNotice,
   type PartnerNotifier,
   type PartnerRepository,
   PRIVACY_POLICY_VERSION,
@@ -30,9 +33,14 @@ import type { TasteResult } from '../_shared/taste/compute-taste.ts';
 
 const USER_ID = '7b6f1d2e-0000-4000-8000-000000000001';
 const OTHER_USER_ID = '7b6f1d2e-0000-4000-8000-000000000002';
+const ADMIN_ID = '7b6f1d2e-0000-4000-8000-000000000003';
 const NOW = new Date('2026-10-18T20:00:00Z');
 
 type ProfileRow = NewProfile & { tasteCompletedAt: Date | null };
+
+/** The account's email: from the JWT for the caller, from auth.users for the team. */
+const emailOf = (userId: string) =>
+  userId === USER_ID ? 'info@fogashaz.hu' : 'someone@example.com';
 type PartnerRow = StoredPartner & Omit<NewPartner, 'submittedAt'>;
 
 function createFakes() {
@@ -41,6 +49,8 @@ function createFakes() {
   const files = new Set<string>();
   const deletedUsers: string[] = [];
   const notices: PartnerApplicationNotice[] = [];
+  const decisions: PartnerDecisionNotice[] = [];
+  const adminIds = new Set<string>();
 
   const toStored = (row: ProfileRow): StoredProfile => ({
     id: row.id,
@@ -116,6 +126,43 @@ function createFakes() {
     applicationSubmitted: async (notice) => {
       notices.push(notice);
     },
+    applicationDecided: async (notice) => {
+      decisions.push(notice);
+    },
+  };
+
+  const toPending = (userId: string, partner: PartnerRow): PendingApplication => {
+    const row = rows.get(userId)!;
+    return {
+      userId,
+      displayName: row.displayName,
+      username: row.username,
+      avatarPath: row.avatarPath,
+      accountEmail: emailOf(userId),
+      companyName: partner.companyName,
+      taxNumber: partner.taxNumber,
+      contactName: partner.contactName,
+      contactPhone: partner.contactPhone,
+      address: partner.address,
+      website: partner.website,
+      submittedAt: partner.submittedAt,
+    };
+  };
+
+  const admins: AdminRepository = {
+    isAdmin: async (userId) => adminIds.has(userId),
+    pendingApplications: async () =>
+      [...partnerRows.entries()]
+        .filter(([, partner]) => partner.status === 'pending')
+        .map(([userId, partner]) => toPending(userId, partner))
+        .sort((a, b) => a.submittedAt.getTime() - b.submittedAt.getTime()),
+    decide: async (userId, { approved, reason }) => {
+      const partner = partnerRows.get(userId);
+      if (partner?.status !== 'pending') return null;
+      partner.status = approved ? 'approved' : 'rejected';
+      partner.rejectionReason = reason;
+      return toPending(userId, partner);
+    },
   };
 
   const chosenGenres = new Map<string, Genre[]>();
@@ -185,12 +232,15 @@ function createFakes() {
     files,
     deletedUsers,
     notices,
+    decisions,
+    adminIds,
     savedSettings,
     storedEvents,
     nearbyQueries,
     profiles,
     partners,
     partnerNotifier,
+    admins,
     tastes,
     settings,
     events,
@@ -205,6 +255,7 @@ function setup() {
     profiles: fakes.profiles,
     partners: fakes.partners,
     partnerNotifier: fakes.partnerNotifier,
+    admins: fakes.admins,
     tastes: fakes.tastes,
     settings: fakes.settings,
     events: fakes.events,
@@ -215,7 +266,7 @@ function setup() {
   const as = (userId: string) => {
     const bindings: ApiBindings = {
       userId,
-      email: userId === USER_ID ? 'info@fogashaz.hu' : 'someone@example.com',
+      email: emailOf(userId),
       avatars: fakes.avatars,
       accounts: fakes.accounts,
     };
@@ -281,7 +332,16 @@ describe('GET /api/me', () => {
       accountType: 'person',
       verified: false,
       partner: null,
+      isAdmin: false,
     });
+  });
+
+  it('tells the team’s accounts that they review partner applications (D-008/23)', async () => {
+    const { as, adminIds } = setup();
+    adminIds.add(ADMIN_ID);
+    await as(ADMIN_ID).post('/profile', { ...validProfile, username: 'csapat' });
+
+    expect((await (await as(ADMIN_ID).request('/me')).json()).profile.isAdmin).toBe(true);
   });
 });
 
@@ -773,6 +833,121 @@ describe('partner applications (D-008)', () => {
     expect((await withBio.json()).profile.partner.bio).toBe('Klub a VII. kerületben.');
     // People have no introduction.
     expect((await as(OTHER_USER_ID).patch('/profile', { bio: 'Szia' })).status).toBe(403);
+  });
+});
+
+describe('partner application review (D-008/23)', () => {
+  const decisionPath = (userId: string) => `/admin/partner-applications/${userId}/decision`;
+
+  async function withApplication() {
+    const context = setup();
+    await context.post('/partner/application', validApplication);
+    context.adminIds.add(ADMIN_ID);
+    return { ...context, team: context.as(ADMIN_ID) };
+  }
+
+  it('lists the pending applications to the team only', async () => {
+    const { request, team } = await withApplication();
+
+    expect((await request('/admin/partner-applications')).status).toBe(403);
+    const response = await team.request('/admin/partner-applications');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      applications: [
+        {
+          userId: USER_ID,
+          displayName: 'Fogasház',
+          username: 'fogashaz',
+          avatarUrl: null,
+          accountEmail: 'info@fogashaz.hu',
+          companyName: 'Fogasház Kft.',
+          taxNumber: '10773381-2-44',
+          contactName: 'Kiss Anna',
+          contactPhone: '+36 30 123 4567',
+          address: '1073 Budapest, Akácfa utca 51.',
+          website: 'https://fogashaz.hu',
+          submittedAt: NOW.toISOString(),
+        },
+      ],
+    });
+  });
+
+  it('approves an application and tells the partner', async () => {
+    const { request, team, decisions } = await withApplication();
+
+    const response = await team.post(decisionPath(USER_ID), { decision: 'approve' });
+
+    expect(response.status).toBe(204);
+    expect((await (await request('/me')).json()).profile).toMatchObject({
+      verified: true,
+      partner: { status: 'approved', rejectionReason: null },
+    });
+    expect(decisions).toEqual([
+      {
+        to: 'info@fogashaz.hu',
+        contactName: 'Kiss Anna',
+        displayName: 'Fogasház',
+        username: 'fogashaz',
+        approved: true,
+        reason: null,
+      },
+    ]);
+    expect(await (await team.request('/admin/partner-applications')).json()).toEqual({
+      applications: [],
+    });
+  });
+
+  it('rejects an application only with a reason', async () => {
+    const { request, team, decisions } = await withApplication();
+
+    for (const invalid of [
+      { decision: 'reject' },
+      { decision: 'reject', reason: '   ' },
+      { decision: 'reject', reason: 'x'.repeat(501) },
+      { decision: 'maybe' },
+    ]) {
+      expect((await team.post(decisionPath(USER_ID), invalid)).status).toBe(400);
+    }
+    const response = await team.post(decisionPath(USER_ID), {
+      decision: 'reject',
+      reason: '  Az adószám nem a cégé.  ',
+    });
+
+    expect(response.status).toBe(204);
+    expect((await (await request('/me')).json()).profile).toMatchObject({
+      verified: false,
+      partner: { status: 'rejected', rejectionReason: 'Az adószám nem a cégé.' },
+    });
+    expect(decisions.map(({ approved, reason }) => ({ approved, reason }))).toEqual([
+      { approved: false, reason: 'Az adószám nem a cégé.' },
+    ]);
+  });
+
+  it('decides each application once, and only the team does', async () => {
+    const { post, team, decisions } = await withApplication();
+
+    expect((await post(decisionPath(USER_ID), { decision: 'approve' })).status).toBe(403);
+    expect((await team.post(decisionPath(USER_ID), { decision: 'approve' })).status).toBe(204);
+    // Already decided, never applied for, not a user id at all.
+    for (const userId of [USER_ID, OTHER_USER_ID, 'not-a-user-id']) {
+      const response = await team.post(decisionPath(userId), { decision: 'approve' });
+      expect(response.status).toBe(404);
+    }
+    expect(decisions).toHaveLength(1);
+  });
+
+  it('keeps the decision when the email cannot be sent', async () => {
+    const { team, partnerNotifier, partnerRows } = await withApplication();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    partnerNotifier.applicationDecided = async () => {
+      throw new Error('mail is down');
+    };
+
+    const response = await team.post(decisionPath(USER_ID), { decision: 'approve' });
+
+    expect(response.status).toBe(204);
+    expect(partnerRows.get(USER_ID)?.status).toBe('approved');
   });
 });
 

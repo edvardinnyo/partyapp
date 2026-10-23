@@ -2,6 +2,7 @@
 // index.ts wires it to Supabase and the database.
 import { Hono } from 'hono';
 
+import { type PartnerApplication, partnerDecisionInputSchema } from '../_shared/contracts/admin.ts';
 import {
   type PartnerDetails,
   partnerApplicationInputSchema,
@@ -15,6 +16,7 @@ import {
   type PartnerStatus,
   type Profile,
   updateProfileInputSchema,
+  userIdSchema,
   usernameSchema,
 } from '../_shared/contracts/profile.ts';
 import {
@@ -121,9 +123,43 @@ export type PartnerApplicationNotice = {
   resubmission: boolean;
 };
 
+export type PartnerDecisionNotice = {
+  /** The partner account's email address. */
+  to: string;
+  contactName: string;
+  displayName: string;
+  username: string;
+  approved: boolean;
+  /** Only for a rejection. */
+  reason: string | null;
+};
+
 export interface PartnerNotifier {
   /** D-008/4: tells the team about a new or a corrected application. */
   applicationSubmitted(notice: PartnerApplicationNotice): Promise<void>;
+  /** D-008/4: tells the partner the team's decision. */
+  applicationDecided(notice: PartnerDecisionNotice): Promise<void>;
+}
+
+export type PendingApplication = PartnerDetails & {
+  userId: string;
+  displayName: string;
+  username: string;
+  avatarPath: string | null;
+  accountEmail: string | null;
+  submittedAt: Date;
+};
+
+export interface AdminRepository {
+  isAdmin(userId: string): Promise<boolean>;
+  /** Applications waiting for the team, the oldest first. */
+  pendingApplications(): Promise<PendingApplication[]>;
+  /** Decides a pending application; null when there is no pending one for this user. */
+  decide(
+    userId: string,
+    decision: { approved: boolean; reason: string | null },
+    at: Date,
+  ): Promise<PendingApplication | null>;
 }
 
 export interface TasteRepository {
@@ -186,6 +222,7 @@ export type ApiDeps = {
   profiles: ProfileRepository;
   partners: PartnerRepository;
   partnerNotifier: PartnerNotifier;
+  admins: AdminRepository;
   tastes: TasteRepository;
   settings: SettingsRepository;
   events: EventRepository;
@@ -267,6 +304,7 @@ export function createApp({
   profiles,
   partners,
   partnerNotifier,
+  admins,
   tastes,
   settings,
   events,
@@ -300,6 +338,19 @@ export function createApp({
             bio: partner.bio,
           }
         : null,
+      isAdmin: await admins.isAdmin(stored.id),
+    };
+  }
+
+  async function toApplication(
+    application: PendingApplication,
+    avatars: AvatarStorage,
+  ): Promise<PartnerApplication> {
+    const { avatarPath, submittedAt, ...rest } = application;
+    return {
+      ...rest,
+      avatarUrl: avatarPath ? await avatars.createSignedUrl(avatarPath) : null,
+      submittedAt: submittedAt.toISOString(),
     };
   }
 
@@ -316,6 +367,58 @@ export function createApp({
       console.error('[partners] the application email could not be sent', error);
     }
   }
+
+  /** The decision stands either way; the partner also sees it in the app. */
+  async function notifyPartner(notice: PartnerDecisionNotice) {
+    try {
+      await partnerNotifier.applicationDecided(notice);
+    } catch (error) {
+      console.error('[partners] the decision email could not be sent', error);
+    }
+  }
+
+  // D-008/23: the team reviews partner applications in the app.
+  app.get('/admin/partner-applications', async (c) => {
+    if (!(await admins.isAdmin(c.env.userId))) {
+      return c.json(apiError('forbidden'), 403);
+    }
+    const pending = await admins.pendingApplications();
+    const applications = await Promise.all(
+      pending.map((application) => toApplication(application, c.env.avatars)),
+    );
+    return c.json({ applications });
+  });
+
+  app.post('/admin/partner-applications/:userId/decision', async (c) => {
+    if (!(await admins.isAdmin(c.env.userId))) {
+      return c.json(apiError('forbidden'), 403);
+    }
+    const parsed = partnerDecisionInputSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) {
+      return c.json(apiError('invalid_input'), 400);
+    }
+    const target = userIdSchema.safeParse(c.req.param('userId'));
+    const approved = parsed.data.decision === 'approve';
+    const reason = parsed.data.decision === 'reject' ? parsed.data.reason : null;
+    // Only a pending application is decided: a second reviewer gets 404, not a second email.
+    const decided = target.success
+      ? await admins.decide(target.data, { approved, reason }, now())
+      : null;
+    if (!decided) {
+      return c.json(apiError('not_found'), 404);
+    }
+    if (decided.accountEmail) {
+      await notifyPartner({
+        to: decided.accountEmail,
+        contactName: decided.contactName,
+        displayName: decided.displayName,
+        username: decided.username,
+        approved,
+        reason,
+      });
+    }
+    return c.body(null, 204);
+  });
 
   app.get('/me', async (c) => {
     const stored = await profiles.findById(c.env.userId);

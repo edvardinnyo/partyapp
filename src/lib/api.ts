@@ -19,6 +19,11 @@ import {
   type NearbyEventsInput,
   nearbyEventsResponseSchema,
 } from '@shared/contracts/events';
+import {
+  type PartnerApplication,
+  partnerApplicationsResponseSchema,
+  type PartnerDecisionInput,
+} from '@shared/contracts/admin';
 import { type Genre, isGenre, tasteResponseSchema } from '@shared/contracts/genres';
 import type { PartnerApplicationInput, PartnerResubmissionInput } from '@shared/contracts/partner';
 import { settingsResponseSchema, type UserSettings } from '@shared/contracts/settings';
@@ -95,6 +100,23 @@ export const api = {
   /** D-008/4: after a rejection, the corrected application. */
   resubmitPartnerApplication: (input: PartnerResubmissionInput): Promise<MeResponse> =>
     call('partner/application', 'PUT', meResponseSchema, input),
+
+  /** D-008/23: the applications waiting for the team, oldest first. Only for the team. */
+  getPartnerApplications: async (): Promise<PartnerApplication[]> =>
+    (await call('admin/partner-applications', 'GET', partnerApplicationsResponseSchema))
+      .applications,
+
+  decidePartnerApplication: async (
+    userId: string,
+    decision: PartnerDecisionInput,
+  ): Promise<void> => {
+    await call(
+      `admin/partner-applications/${encodeURIComponent(userId)}/decision`,
+      'POST',
+      z.unknown(),
+      decision,
+    );
+  },
 
   /** The manual choice, favourite first; genres this app version does not know are skipped. */
   getTaste: async (): Promise<Genre[]> =>

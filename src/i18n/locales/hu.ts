@@ -199,6 +199,28 @@ export const hu = {
     upcomingEvents: 'Közelgő események',
     upcomingEventsPlaceholder: 'A partner közelgő eseményei',
   },
+  admin: {
+    section: 'Nocturnal csapat',
+    applications: 'Partnerkérelmek',
+    application: 'Partnerkérelem',
+    noApplications: 'Nincs elbírálásra váró partnerkérelem.',
+    submittedAt: 'Beküldve: {{date}}',
+    company: 'Cégadatok',
+    website: 'Weboldal',
+    accountEmail: 'A fiók e-mail-címe',
+    checks:
+      'Ellenőrizd a cégnevet és az adószámot (e-cegjegyzek.hu, a NAV adószám-lekérdezője), és hogy a fiók e-mail-címe a cég saját domainjén van-e.',
+    approve: 'Jóváhagyás',
+    approveConfirmTitle: 'Jóváhagyod a kérelmet?',
+    approveConfirmMessage:
+      '{{name}} hitelesített partner lesz, a neve védett lesz, és e-mailt kap a döntésről.',
+    reject: 'Elutasítás',
+    rejectionReason: 'Az elutasítás indoklása',
+    rejectionReasonHint: 'A partner az appban és az e-mailben is ezt látja.',
+    rejectionReasonRequired: 'Írd le, miért utasítod el a kérelmet.',
+    sendRejection: 'Elutasítás elküldése',
+    alreadyDecided: 'Ezt a kérelmet közben már elbírálták.',
+  },
   privacy: {
     title: 'Adatvédelmi tájékoztató',
     draft:

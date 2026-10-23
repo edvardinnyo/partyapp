@@ -211,3 +211,14 @@ export const events = pgTable(
     index('events_venue_id_idx').on(table.venueId),
   ],
 ).enableRLS();
+
+/**
+ * D-008/23: the team's accounts, which review partner applications in the app. Granted with
+ * SQL only (`insert into public.admins (user_id) …`); the app has no way to change it.
+ */
+export const admins = pgTable('admins', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => profiles.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();

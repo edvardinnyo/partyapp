@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import { Alert } from 'react-native';
 
+import type { PartnerApplication } from '@shared/contracts/admin';
 import type { EventDetail, EventSummary } from '@shared/contracts/events';
 import type { PartnerInfo, Profile } from '@shared/contracts/profile';
 import { useAuthStore } from '@/features/auth/auth-store';
@@ -44,6 +45,8 @@ jest.mock('@/lib/api', () => ({
     checkUsername: jest.fn(),
     submitPartnerApplication: jest.fn(),
     resubmitPartnerApplication: jest.fn(),
+    getPartnerApplications: jest.fn(),
+    decidePartnerApplication: jest.fn(),
     createAvatarUpload: jest.fn(),
     createProfile: jest.fn(),
     updateProfile: jest.fn(),
@@ -75,6 +78,7 @@ const readyProfile: Profile = {
   accountType: 'person',
   verified: false,
   partner: null,
+  isAdmin: false,
 };
 
 type AuthCallback = (event: AuthChangeEvent, session: Session | null) => void;
@@ -403,6 +407,7 @@ describe('partner accounts (D-008)', () => {
     accountType: 'partner',
     verified,
     partner: { ...partnerInfo, ...partner },
+    isAdmin: false,
   });
 
   /** The whole partner sign-up form: the sign-in details and the application. */
@@ -620,6 +625,106 @@ describe('partner accounts (D-008)', () => {
     expect(
       await screen.findByText('Ez a név egy hitelesített partneré, vagy nagyon hasonlít hozzá.'),
     ).toBeOnTheScreen();
+  });
+});
+
+describe('partner application review (D-008/23)', () => {
+  const application: PartnerApplication = {
+    userId: '7b6f1d2e-0000-4000-8000-000000000009',
+    displayName: 'Fogasház',
+    username: 'fogashaz',
+    avatarUrl: null,
+    accountEmail: 'info@fogashaz.hu',
+    companyName: 'Fogasház Kft.',
+    taxNumber: '10773381-2-44',
+    contactName: 'Kiss Anna',
+    contactPhone: '+36 30 123 4567',
+    address: '1073 Budapest, Akácfa utca 51.',
+    website: null,
+    submittedAt: '2026-10-23T18:30:00.000Z',
+  };
+
+  beforeEach(() => {
+    startSignedInAs(USER_ID);
+    mockedApi.getMe.mockResolvedValue({ profile: { ...readyProfile, isAdmin: true } });
+    mockedApi.getPartnerApplications.mockResolvedValue([application]);
+    mockedApi.decidePartnerApplication.mockResolvedValue(undefined);
+  });
+
+  /** Settings → Partner applications → the application. */
+  async function openApplication() {
+    await renderRouter(APP_DIR);
+    await screen.findByText('Ajánlott események');
+    await act(() => router.push('/settings'));
+    await fireEvent.press(await screen.findByText('Partnerkérelmek'));
+    await fireEvent.press(await screen.findByText('Fogasház'));
+    expect(await screen.findByText('10773381-2-44')).toBeOnTheScreen();
+    expect(screen.getByText('info@fogashaz.hu')).toBeOnTheScreen();
+    expect(navbarLabels()).toEqual([]);
+  }
+
+  it('shows the menu to the team’s accounts only', async () => {
+    mockedApi.getMe.mockResolvedValue({ profile: readyProfile });
+    await renderRouter(APP_DIR);
+    await screen.findByText('Ajánlott események');
+    await act(() => router.push('/settings'));
+
+    expect(await screen.findByText('Kijelentkezés')).toBeOnTheScreen();
+    expect(screen.queryByText('Partnerkérelmek')).toBeNull();
+  });
+
+  it('approves an application after a confirmation', async () => {
+    const alert = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementationOnce((_title, _message, buttons) =>
+        buttons?.find((button) => button.text === 'Jóváhagyás')?.onPress?.(),
+      );
+    await openApplication();
+    mockedApi.getPartnerApplications.mockResolvedValue([]);
+
+    await fireEvent.press(screen.getByText('Jóváhagyás'));
+
+    expect(alert).toHaveBeenCalledWith(
+      'Jóváhagyod a kérelmet?',
+      expect.any(String),
+      expect.any(Array),
+    );
+    expect(mockedApi.decidePartnerApplication).toHaveBeenCalledWith(application.userId, {
+      decision: 'approve',
+    });
+    expect(await screen.findByText('Nincs elbírálásra váró partnerkérelem.')).toBeOnTheScreen();
+  });
+
+  it('rejects an application only with a reason', async () => {
+    await openApplication();
+
+    await fireEvent.press(screen.getByText('Elutasítás'));
+    await fireEvent.press(screen.getByText('Elutasítás elküldése'));
+    expect(screen.getByText('Írd le, miért utasítod el a kérelmet.')).toBeOnTheScreen();
+    expect(mockedApi.decidePartnerApplication).not.toHaveBeenCalled();
+
+    await fireEvent.changeText(
+      screen.getByLabelText('Az elutasítás indoklása'),
+      '  Az adószám nem a cégé.  ',
+    );
+    await fireEvent.press(screen.getByText('Elutasítás elküldése'));
+
+    expect(mockedApi.decidePartnerApplication).toHaveBeenCalledWith(application.userId, {
+      decision: 'reject',
+      reason: 'Az adószám nem a cégé.',
+    });
+  });
+
+  it('says so when the application was decided meanwhile', async () => {
+    mockedApi.decidePartnerApplication.mockRejectedValue(new ApiError('not_found', 404));
+    await openApplication();
+    mockedApi.getPartnerApplications.mockResolvedValue([]);
+
+    await fireEvent.press(screen.getByText('Elutasítás'));
+    await fireEvent.changeText(screen.getByLabelText('Az elutasítás indoklása'), 'Hibás adatok');
+    await fireEvent.press(screen.getByText('Elutasítás elküldése'));
+
+    expect(await screen.findByText('Ezt a kérelmet közben már elbírálták.')).toBeOnTheScreen();
   });
 });
 

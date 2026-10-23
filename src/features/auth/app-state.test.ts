@@ -12,6 +12,7 @@ const profile: Profile = {
   accountType: 'person',
   verified: false,
   partner: null,
+  isAdmin: false,
 };
 
 const signedIn = {

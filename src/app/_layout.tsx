@@ -80,6 +80,15 @@ function RootNavigator() {
             name="settings"
             options={{ headerShown: true, title: t('settings.title') }}
           />
+          {/* D-008/23: the team reviews partner applications, opened from Settings. */}
+          <Stack.Screen
+            name="partner-applications/index"
+            options={{ headerShown: true, title: t('admin.applications') }}
+          />
+          <Stack.Screen
+            name="partner-applications/[userId]"
+            options={{ headerShown: true, title: t('admin.application') }}
+          />
         </Stack.Protected>
         {/* Reachable before and after signing in (the sign-up asks to accept it). */}
         <Stack.Screen name="privacy" options={{ headerShown: true, title: t('privacy.title') }} />

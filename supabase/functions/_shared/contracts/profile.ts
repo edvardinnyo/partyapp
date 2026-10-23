@@ -26,6 +26,9 @@ export function normalizeUsername(input: string): string {
 export const usernameSchema = z.string().regex(USERNAME_PATTERN);
 export const displayNameSchema = z.string().trim().min(1).max(DISPLAY_NAME_MAX_LENGTH);
 
+/** Supabase Auth user ids. */
+export const userIdSchema = z.uuid();
+
 export const createProfileInputSchema = z.object({
   displayName: displayNameSchema,
   username: usernameSchema,
@@ -88,6 +91,8 @@ export const profileSchema = z.object({
   verified: z.boolean(),
   /** Only in the own profile of a partner. */
   partner: partnerInfoSchema.nullable(),
+  /** D-008/23: the own account reviews partner applications. */
+  isAdmin: z.boolean(),
 });
 export type Profile = z.infer<typeof profileSchema>;
 
