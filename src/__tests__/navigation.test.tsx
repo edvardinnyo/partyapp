@@ -4,14 +4,16 @@ import { router } from 'expo-router';
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import { Alert } from 'react-native';
 
+import type { PartnerApplication } from '@shared/contracts/admin';
 import type { EventDetail, EventSummary } from '@shared/contracts/events';
-import type { Profile } from '@shared/contracts/profile';
+import type { PartnerInfo, Profile } from '@shared/contracts/profile';
 import { useAuthStore } from '@/features/auth/auth-store';
 import { useLocationStore } from '@/features/location/location-store';
 import { LAUNCH_CITY_CENTER } from '@/features/location/position';
 import { usePreferencesStore } from '@/features/settings/preferences-store';
 import i18n from '@/i18n';
-import { api } from '@/lib/api';
+import { useRegistrationStore } from '@/features/auth/registration-store';
+import { api, ApiError } from '@/lib/api';
 import { queryClient } from '@/lib/query-client';
 import { supabase } from '@/lib/supabase';
 
@@ -28,6 +30,7 @@ jest.mock('@/lib/supabase', () => {
         verifyOtp: jest.fn(),
         resend: jest.fn(),
         signOut: jest.fn(),
+        updateUser: jest.fn(async () => ({ data: {}, error: null })),
       },
       channel: jest.fn(() => channel),
       removeChannel: jest.fn(),
@@ -39,7 +42,11 @@ jest.mock('@/lib/api', () => ({
   ApiError: jest.requireActual('@/lib/api').ApiError,
   api: {
     getMe: jest.fn(),
-    isUsernameAvailable: jest.fn(),
+    checkUsername: jest.fn(),
+    submitPartnerApplication: jest.fn(),
+    resubmitPartnerApplication: jest.fn(),
+    getPartnerApplications: jest.fn(),
+    decidePartnerApplication: jest.fn(),
     createAvatarUpload: jest.fn(),
     createProfile: jest.fn(),
     updateProfile: jest.fn(),
@@ -68,13 +75,21 @@ const readyProfile: Profile = {
   avatarUrl: null,
   tasteCompleted: true,
   topGenres: ['techno', 'house', 'pop'],
+  accountType: 'person',
+  verified: false,
+  partner: null,
+  isAdmin: false,
 };
 
 type AuthCallback = (event: AuthChangeEvent, session: Session | null) => void;
 let emitAuth: AuthCallback = () => {};
 
-function sessionFor(userId: string | null): Session | null {
-  return userId ? ({ user: { id: userId } } as unknown as Session) : null;
+function sessionFor(userId: string | null, accountType = 'person', email = EMAIL): Session | null {
+  return userId
+    ? ({
+        user: { id: userId, email, user_metadata: { account_type: accountType } },
+      } as unknown as Session)
+    : null;
 }
 
 /** The session Supabase "restores" at startup. */
@@ -120,6 +135,7 @@ beforeEach(async () => {
   queryClient.clear();
   useAuthStore.setState({ status: 'loading', userId: null, isRecoveringPassword: false });
   useLocationStore.setState({ status: 'checking', position: null });
+  useRegistrationStore.setState({ pending: null });
   // clearAllMocks keeps answers set by a test, so the default (location allowed) is set again.
   jest.mocked(Location.getForegroundPermissionsAsync).mockResolvedValue({
     status: Location.PermissionStatus.GRANTED,
@@ -194,9 +210,16 @@ describe('sign-in flow (F6)', () => {
     expect(await screen.findByText(/még nincs megerősítve/)).toBeOnTheScreen();
   });
 
-  it('signs up, then confirms the email with the 6-digit code (D-004)', async () => {
+  it('registers a person: profile and taste first, the email code last (D-009)', async () => {
     startSignedInAs(null);
     mockedApi.getMe.mockResolvedValue({ profile: null });
+    mockedApi.checkUsername.mockResolvedValue('available');
+    mockedApi.createProfile.mockResolvedValue({
+      profile: { ...readyProfile, tasteCompleted: false, topGenres: [] },
+    });
+    mockedApi.saveTaste.mockResolvedValue({
+      profile: { ...readyProfile, topGenres: ['rock', 'techno', 'jazz'] },
+    });
     auth.signUp.mockResolvedValue({ data: { user: { identities: [{}] } }, error: null } as never);
     auth.verifyOtp.mockImplementation(async () => {
       emitAuth('SIGNED_IN', sessionFor(USER_ID));
@@ -206,15 +229,88 @@ describe('sign-in flow (F6)', () => {
 
     await fireEvent.changeText(screen.getByLabelText('E-mail-cím'), EMAIL);
     await fireEvent.changeText(screen.getByLabelText('Jelszó'), 'secret-password');
-    await fireEvent.press(screen.getByText('Regisztráció'));
+    await fireEvent.changeText(screen.getByLabelText('Megjelenített név'), 'Fekete Olivér');
+    await fireEvent.changeText(screen.getByLabelText('Felhasználónév'), 'oli.fekete');
+    expect(await screen.findByText('Szabad felhasználónév.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByText('Elmúltam 18 éves'));
+    await fireEvent.press(screen.getByText('Elfogadom az adatvédelmi tájékoztatót'));
+    await fireEvent.press(screen.getByText('Tovább'));
 
+    await fireEvent.press(await screen.findByText('Műfajok kiválasztása'));
+    await fireEvent.press(await screen.findByLabelText('Rock'));
+    await fireEvent.press(screen.getByLabelText('Techno'));
+    await fireEvent.press(screen.getByLabelText('Jazz'));
+    // Nothing reaches the server before the code.
+    expect(auth.signUp).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByText('Tovább: e-mail-cím megerősítése'));
+
+    expect(auth.signUp).toHaveBeenCalledWith({
+      email: EMAIL,
+      password: 'secret-password',
+      options: { data: { account_type: 'person' } },
+    });
     expect(await screen.findByText(`Elküldtük a 6 jegyű kódot ide: ${EMAIL}`)).toBeOnTheScreen();
+    expect(mockedApi.createProfile).not.toHaveBeenCalled();
 
     await fireEvent.changeText(screen.getByLabelText('Kód'), '123456');
     await fireEvent.press(screen.getByText('Megerősítés'));
 
+    // The code completes the registration: the profile and the taste are saved on their own.
+    expect(await screen.findByText('Ajánlott események')).toBeOnTheScreen();
     expect(auth.verifyOtp).toHaveBeenCalledWith({ email: EMAIL, token: '123456', type: 'email' });
-    expect(await screen.findByLabelText('Megjelenített név')).toBeOnTheScreen();
+    expect(mockedApi.createProfile).toHaveBeenCalledWith({
+      displayName: 'Fekete Olivér',
+      username: 'oli.fekete',
+      avatarPath: null,
+      adultConfirmed: true,
+      privacyAccepted: true,
+    });
+    expect(mockedApi.saveTaste).toHaveBeenCalledWith(['rock', 'techno', 'jazz']);
+    // A second sign-up of an unconfirmed address keeps the latest password and account type.
+    expect(auth.updateUser).toHaveBeenCalledWith({ data: { account_type: 'person' } });
+    expect(auth.updateUser).toHaveBeenCalledWith({ password: 'secret-password' });
+  });
+
+  it('saves the profile after signing in to an earlier, unfinished registration (D-009)', async () => {
+    startSignedInAs(null);
+    mockedApi.getMe.mockResolvedValue({ profile: null });
+    mockedApi.checkUsername.mockResolvedValue('available');
+    mockedApi.createProfile.mockResolvedValue({
+      profile: { ...readyProfile, tasteCompleted: false, topGenres: [] },
+    });
+    mockedApi.saveTaste.mockResolvedValue({ profile: readyProfile });
+    // Supabase answers an existing, confirmed address without identities.
+    auth.signUp.mockResolvedValue({ data: { user: { identities: [] } }, error: null } as never);
+    auth.signInWithPassword.mockImplementation(async () => {
+      emitAuth('SIGNED_IN', sessionFor(USER_ID));
+      return { data: {}, error: null } as never;
+    });
+    await renderRouter(APP_DIR, { initialUrl: '/register' });
+
+    await fireEvent.changeText(screen.getByLabelText('E-mail-cím'), EMAIL);
+    await fireEvent.changeText(screen.getByLabelText('Jelszó'), 'secret-password');
+    await fireEvent.changeText(screen.getByLabelText('Megjelenített név'), 'Fekete Olivér');
+    await fireEvent.changeText(screen.getByLabelText('Felhasználónév'), 'oli.fekete');
+    await screen.findByText('Szabad felhasználónév.');
+    await fireEvent.press(screen.getByText('Elmúltam 18 éves'));
+    await fireEvent.press(screen.getByText('Elfogadom az adatvédelmi tájékoztatót'));
+    await fireEvent.press(screen.getByText('Tovább'));
+    await fireEvent.press(await screen.findByText('Műfajok kiválasztása'));
+    await fireEvent.press(await screen.findByLabelText('Rock'));
+    await fireEvent.press(screen.getByLabelText('Techno'));
+    await fireEvent.press(screen.getByLabelText('Jazz'));
+    await fireEvent.press(screen.getByText('Tovább: e-mail-cím megerősítése'));
+
+    expect(
+      await screen.findByText(/^Ezzel az e-mail-címmel már van fiók\. Ha korábban/),
+    ).toBeOnTheScreen();
+    await fireEvent.press(screen.getByText('Belépés'));
+    await fireEvent.changeText(await screen.findByLabelText('E-mail-cím'), EMAIL);
+    await fireEvent.changeText(screen.getByLabelText('Jelszó'), 'secret-password');
+    await fireEvent.press(screen.getByText('Belépés'));
+
+    expect(await screen.findByText('Ajánlott események')).toBeOnTheScreen();
+    expect(mockedApi.saveTaste).toHaveBeenCalledWith(['rock', 'techno', 'jazz']);
   });
 });
 
@@ -222,7 +318,7 @@ describe('onboarding (D-004)', () => {
   it('creates the profile with the 18+ and privacy confirmations', async () => {
     startSignedInAs(USER_ID);
     mockedApi.getMe.mockResolvedValue({ profile: null });
-    mockedApi.isUsernameAvailable.mockResolvedValue(true);
+    mockedApi.checkUsername.mockResolvedValue('available');
     mockedApi.createProfile.mockResolvedValue({
       profile: { ...readyProfile, tasteCompleted: false },
     });
@@ -231,7 +327,7 @@ describe('onboarding (D-004)', () => {
     await fireEvent.changeText(await screen.findByLabelText('Megjelenített név'), 'Fekete Olivér');
     await fireEvent.changeText(screen.getByLabelText('Felhasználónév'), 'Oli.Fekete');
     expect(await screen.findByText('Szabad felhasználónév.')).toBeOnTheScreen();
-    expect(mockedApi.isUsernameAvailable).toHaveBeenCalledWith('oli.fekete');
+    expect(mockedApi.checkUsername).toHaveBeenCalledWith('oli.fekete');
 
     await fireEvent.press(screen.getByText('Elmúltam 18 éves'));
     await fireEvent.press(screen.getByText('Elfogadom az adatvédelmi tájékoztatót'));
@@ -250,7 +346,7 @@ describe('onboarding (D-004)', () => {
   it('does not continue without the 18+ confirmation', async () => {
     startSignedInAs(USER_ID);
     mockedApi.getMe.mockResolvedValue({ profile: null });
-    mockedApi.isUsernameAvailable.mockResolvedValue(true);
+    mockedApi.checkUsername.mockResolvedValue('available');
     await renderRouter(APP_DIR);
 
     await fireEvent.changeText(await screen.findByLabelText('Megjelenített név'), 'Oli');
@@ -286,6 +382,349 @@ describe('onboarding (D-004)', () => {
 
     expect(mockedApi.saveTaste).toHaveBeenCalledWith(['rock', 'techno', 'jazz']);
     expect(await screen.findByText('Ajánlott események')).toBeOnTheScreen();
+  });
+});
+
+describe('partner accounts (D-008)', () => {
+  const partnerInfo: PartnerInfo = {
+    status: 'pending',
+    rejectionReason: null,
+    companyName: 'Fogasház Kft.',
+    taxNumber: '10773381-2-44',
+    contactName: 'Kiss Anna',
+    contactPhone: '+36 30 123 4567',
+    address: '1073 Budapest, Akácfa utca 51.',
+    website: null,
+    bio: null,
+  };
+  const partnerProfile = (partner: Partial<PartnerInfo> = {}, verified = false): Profile => ({
+    id: USER_ID,
+    username: 'fogashaz',
+    displayName: 'Fogasház',
+    avatarUrl: null,
+    tasteCompleted: false,
+    topGenres: [],
+    accountType: 'partner',
+    verified,
+    partner: { ...partnerInfo, ...partner },
+    isAdmin: false,
+  });
+
+  /** The whole partner sign-up form: the sign-in details and the application. */
+  async function fillPartnerSignup() {
+    await fireEvent.press(screen.getByText('Partnerregisztráció'));
+    await fireEvent.changeText(
+      await screen.findByLabelText('Céges e-mail-cím'),
+      'info@fogashaz.hu',
+    );
+    await fireEvent.changeText(screen.getByLabelText('Jelszó'), 'secret-password');
+    await fireEvent.changeText(screen.getByLabelText('Nyilvános név'), 'Fogasház');
+    await fireEvent.changeText(screen.getByLabelText('Felhasználónév'), 'fogashaz');
+    await fireEvent.changeText(screen.getByLabelText('Cégnév'), 'Fogasház Kft.');
+    await fireEvent.changeText(screen.getByLabelText('Adószám'), '12345676-2-42');
+    await fireEvent.changeText(screen.getByLabelText('Kapcsolattartó neve'), 'Kiss Anna');
+    await fireEvent.changeText(
+      screen.getByLabelText('Kapcsolattartó telefonszáma'),
+      '+36 30 123 4567',
+    );
+    await fireEvent.changeText(
+      screen.getByLabelText('A helyszín címe'),
+      '1073 Budapest, Akácfa utca 51.',
+    );
+    expect(await screen.findByText('Szabad felhasználónév.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByText('Elfogadom a partneri feltételeket'));
+    await fireEvent.press(screen.getByText('Elfogadom az adatvédelmi tájékoztatót'));
+  }
+
+  const expectedApplication = {
+    displayName: 'Fogasház',
+    username: 'fogashaz',
+    avatarPath: null,
+    companyName: 'Fogasház Kft.',
+    taxNumber: '12345676-2-42',
+    contactName: 'Kiss Anna',
+    contactPhone: '+36 30 123 4567',
+    address: '1073 Budapest, Akácfa utca 51.',
+    website: null,
+    termsAccepted: true,
+    privacyAccepted: true,
+  };
+
+  function codeSignsInAsPartner() {
+    auth.signUp.mockResolvedValue({ data: { user: { identities: [{}] } }, error: null } as never);
+    auth.verifyOtp.mockImplementation(async () => {
+      emitAuth('SIGNED_IN', sessionFor(USER_ID, 'partner', 'info@fogashaz.hu'));
+      return { data: {}, error: null } as never;
+    });
+  }
+
+  it('registers a partner: the application first, the email code last (D-008/22)', async () => {
+    startSignedInAs(null);
+    mockedApi.getMe.mockResolvedValue({ profile: null });
+    mockedApi.checkUsername.mockResolvedValue('available');
+    mockedApi.submitPartnerApplication.mockResolvedValue({ profile: partnerProfile() });
+    codeSignsInAsPartner();
+    await renderRouter(APP_DIR);
+
+    await fillPartnerSignup();
+    // No 18+ box for a company, and nothing is sent before the code.
+    expect(screen.queryByText('Elmúltam 18 éves')).toBeNull();
+    await fireEvent.press(screen.getByText('Tovább: e-mail-cím megerősítése'));
+    expect(auth.signUp).toHaveBeenCalledWith({
+      email: 'info@fogashaz.hu',
+      password: 'secret-password',
+      options: { data: { account_type: 'partner' } },
+    });
+    expect(mockedApi.submitPartnerApplication).not.toHaveBeenCalled();
+
+    await fireEvent.changeText(await screen.findByLabelText('Kód'), '123456');
+    await fireEvent.press(screen.getByText('Megerősítés'));
+
+    // The code completes the sign-up: the application goes out on its own.
+    expect(await screen.findByText('A partnerkérelmed elbírálás alatt')).toBeOnTheScreen();
+    expect(mockedApi.submitPartnerApplication).toHaveBeenCalledWith(expectedApplication);
+    expect(screen.getByText('Események a közelben')).toBeOnTheScreen();
+    expect(navbarLabels()).toEqual(['Csevegőtér', 'Home', 'Profilkereső']);
+  });
+
+  it('brings the form back, filled in, when sending fails after the code', async () => {
+    startSignedInAs(null);
+    mockedApi.getMe.mockResolvedValue({ profile: null });
+    mockedApi.checkUsername.mockResolvedValue('available');
+    mockedApi.submitPartnerApplication.mockRejectedValue(new ApiError('name_protected', 409));
+    codeSignsInAsPartner();
+    await renderRouter(APP_DIR);
+
+    await fillPartnerSignup();
+    await fireEvent.press(screen.getByText('Tovább: e-mail-cím megerősítése'));
+    await fireEvent.changeText(await screen.findByLabelText('Kód'), '123456');
+    await fireEvent.press(screen.getByText('Megerősítés'));
+
+    expect(
+      await screen.findByText('Ez a név egy hitelesített partneré, vagy nagyon hasonlít hozzá.'),
+    ).toBeOnTheScreen();
+    expect(screen.getByLabelText('Cégnév').props.value).toBe('Fogasház Kft.');
+    expect(screen.getByText('Kérelem beküldése')).toBeOnTheScreen();
+  });
+
+  it('sends the application after signing in to an earlier, unfinished account', async () => {
+    startSignedInAs(null);
+    mockedApi.getMe.mockResolvedValue({ profile: null });
+    mockedApi.checkUsername.mockResolvedValue('available');
+    mockedApi.submitPartnerApplication.mockResolvedValue({ profile: partnerProfile() });
+    // Supabase answers an existing, confirmed address without identities.
+    auth.signUp.mockResolvedValue({ data: { user: { identities: [] } }, error: null } as never);
+    auth.signInWithPassword.mockImplementation(async () => {
+      emitAuth('SIGNED_IN', sessionFor(USER_ID, 'partner', 'info@fogashaz.hu'));
+      return { data: {}, error: null } as never;
+    });
+    await renderRouter(APP_DIR);
+
+    await fillPartnerSignup();
+    await fireEvent.press(screen.getByText('Tovább: e-mail-cím megerősítése'));
+    expect(
+      await screen.findByText(/^Ezzel az e-mail-címmel már van fiók\. Ha korábban/),
+    ).toBeOnTheScreen();
+    await fireEvent.press(screen.getByText('Belépés'));
+
+    await fireEvent.changeText(await screen.findByLabelText('E-mail-cím'), 'info@fogashaz.hu');
+    await fireEvent.changeText(screen.getByLabelText('Jelszó'), 'secret-password');
+    await fireEvent.press(screen.getByText('Belépés'));
+
+    expect(await screen.findByText('A partnerkérelmed elbírálás alatt')).toBeOnTheScreen();
+    expect(mockedApi.submitPartnerApplication).toHaveBeenCalledWith(expectedApplication);
+  });
+
+  it('explains a wrong tax number, and accepts the example it shows', async () => {
+    startSignedInAs(USER_ID);
+    mockedApi.getMe.mockResolvedValue({ profile: null });
+    auth.onAuthStateChange.mockImplementation((callback) => {
+      emitAuth = callback as AuthCallback;
+      emitAuth('INITIAL_SESSION', sessionFor(USER_ID, 'partner'));
+      return { data: { subscription: { unsubscribe: jest.fn() } } } as never;
+    });
+    await renderRouter(APP_DIR);
+    const field = await screen.findByLabelText('Adószám');
+    expect(screen.getByText('Például 12345676-2-42. Csak mi látjuk.')).toBeOnTheScreen();
+
+    // No complaint while typing; then a check digit that cannot be right.
+    await fireEvent.changeText(field, '1234567');
+    expect(screen.queryByText(/^Az adószám formája/)).toBeNull();
+    await fireEvent.changeText(field, '12345678-2-44');
+    expect(screen.getByText(/^Ilyen adószám nem létezhet/)).toBeOnTheScreen();
+
+    // The example under the field is valid, so it also works as test data.
+    await fireEvent.changeText(field, '12345676-2-42');
+    expect(screen.queryByText(/^Ilyen adószám nem létezhet/)).toBeNull();
+
+    // A wrong shape gets its own explanation once the field is left.
+    await fireEvent.changeText(field, '1234-5');
+    await fireEvent(field, 'blur');
+    expect(screen.getByText(/^Az adószám formája/)).toBeOnTheScreen();
+  });
+
+  it('shows a rejected partner the reason and takes a corrected application', async () => {
+    startSignedInAs(USER_ID);
+    mockedApi.getMe.mockResolvedValue({
+      profile: partnerProfile({ status: 'rejected', rejectionReason: 'Hibás adószám' }),
+    });
+    mockedApi.resubmitPartnerApplication.mockResolvedValue({ profile: partnerProfile() });
+    await renderRouter(APP_DIR);
+
+    expect(await screen.findByText('A partnerkérelmedet elutasítottuk')).toBeOnTheScreen();
+    expect(screen.getByText('Indoklás: Hibás adószám')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByText('Kérelem javítása'));
+
+    const phone = await screen.findByLabelText('Kapcsolattartó telefonszáma');
+    expect(screen.getByLabelText('Cégnév').props.value).toBe('Fogasház Kft.');
+    expect(navbarLabels()).toEqual([]);
+    await fireEvent.changeText(phone, '+36 30 765 4321');
+    await fireEvent.press(screen.getByText('Kérelem újbóli beküldése'));
+
+    expect(mockedApi.resubmitPartnerApplication).toHaveBeenCalledWith({
+      displayName: 'Fogasház',
+      companyName: 'Fogasház Kft.',
+      taxNumber: '10773381-2-44',
+      contactName: 'Kiss Anna',
+      contactPhone: '+36 30 765 4321',
+      address: '1073 Budapest, Akácfa utca 51.',
+      website: null,
+    });
+    expect(await screen.findByText('A partnerkérelmed elbírálás alatt')).toBeOnTheScreen();
+  });
+
+  it('gives an approved partner the badge and a profile without genres or taste', async () => {
+    startSignedInAs(USER_ID);
+    mockedApi.getMe.mockResolvedValue({
+      profile: partnerProfile({ status: 'approved', bio: 'Klub a VII. kerületben.' }, true),
+    });
+    await renderRouter(APP_DIR);
+    await screen.findByText('Események a közelben');
+    expect(screen.queryByText('A partnerkérelmed elbírálás alatt')).toBeNull();
+
+    await act(() => router.push('/profile/me'));
+
+    expect(await screen.findByLabelText('Hitelesített partner')).toBeOnTheScreen();
+    expect(screen.getByText('Klub a VII. kerületben.')).toBeOnTheScreen();
+    expect(screen.getByText('1073 Budapest, Akácfa utca 51.')).toBeOnTheScreen();
+    expect(screen.queryByText('Legtöbbet látogatott hely')).toBeNull();
+
+    await act(() => router.push('/settings'));
+    expect(await screen.findByText('Kijelentkezés')).toBeOnTheScreen();
+    expect(screen.queryByText('Ízlés módosítása')).toBeNull();
+  });
+
+  it('does not let a person take a name too close to a verified partner’s (D-008/5)', async () => {
+    startSignedInAs(USER_ID);
+    mockedApi.getMe.mockResolvedValue({ profile: null });
+    mockedApi.checkUsername.mockResolvedValue('protected');
+    await renderRouter(APP_DIR);
+
+    await fireEvent.changeText(await screen.findByLabelText('Felhasználónév'), 'fogashaz.official');
+
+    expect(
+      await screen.findByText('Ez a név egy hitelesített partneré, vagy nagyon hasonlít hozzá.'),
+    ).toBeOnTheScreen();
+  });
+});
+
+describe('partner application review (D-008/23)', () => {
+  const application: PartnerApplication = {
+    userId: '7b6f1d2e-0000-4000-8000-000000000009',
+    displayName: 'Fogasház',
+    username: 'fogashaz',
+    avatarUrl: null,
+    accountEmail: 'info@fogashaz.hu',
+    companyName: 'Fogasház Kft.',
+    taxNumber: '10773381-2-44',
+    contactName: 'Kiss Anna',
+    contactPhone: '+36 30 123 4567',
+    address: '1073 Budapest, Akácfa utca 51.',
+    website: null,
+    submittedAt: '2026-10-23T18:30:00.000Z',
+  };
+
+  beforeEach(() => {
+    startSignedInAs(USER_ID);
+    mockedApi.getMe.mockResolvedValue({ profile: { ...readyProfile, isAdmin: true } });
+    mockedApi.getPartnerApplications.mockResolvedValue([application]);
+    mockedApi.decidePartnerApplication.mockResolvedValue(undefined);
+  });
+
+  /** Settings → Partner applications → the application. */
+  async function openApplication() {
+    await renderRouter(APP_DIR);
+    await screen.findByText('Ajánlott események');
+    await act(() => router.push('/settings'));
+    await fireEvent.press(await screen.findByText('Partnerkérelmek'));
+    await fireEvent.press(await screen.findByText('Fogasház'));
+    expect(await screen.findByText('10773381-2-44')).toBeOnTheScreen();
+    expect(screen.getByText('info@fogashaz.hu')).toBeOnTheScreen();
+    expect(navbarLabels()).toEqual([]);
+  }
+
+  it('shows the menu to the team’s accounts only', async () => {
+    mockedApi.getMe.mockResolvedValue({ profile: readyProfile });
+    await renderRouter(APP_DIR);
+    await screen.findByText('Ajánlott események');
+    await act(() => router.push('/settings'));
+
+    expect(await screen.findByText('Kijelentkezés')).toBeOnTheScreen();
+    expect(screen.queryByText('Partnerkérelmek')).toBeNull();
+  });
+
+  it('approves an application after a confirmation', async () => {
+    const alert = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementationOnce((_title, _message, buttons) =>
+        buttons?.find((button) => button.text === 'Jóváhagyás')?.onPress?.(),
+      );
+    await openApplication();
+    mockedApi.getPartnerApplications.mockResolvedValue([]);
+
+    await fireEvent.press(screen.getByText('Jóváhagyás'));
+
+    expect(alert).toHaveBeenCalledWith(
+      'Jóváhagyod a kérelmet?',
+      expect.any(String),
+      expect.any(Array),
+    );
+    expect(mockedApi.decidePartnerApplication).toHaveBeenCalledWith(application.userId, {
+      decision: 'approve',
+    });
+    expect(await screen.findByText('Nincs elbírálásra váró partnerkérelem.')).toBeOnTheScreen();
+  });
+
+  it('rejects an application only with a reason', async () => {
+    await openApplication();
+
+    await fireEvent.press(screen.getByText('Elutasítás'));
+    await fireEvent.press(screen.getByText('Elutasítás elküldése'));
+    expect(screen.getByText('Írd le, miért utasítod el a kérelmet.')).toBeOnTheScreen();
+    expect(mockedApi.decidePartnerApplication).not.toHaveBeenCalled();
+
+    await fireEvent.changeText(
+      screen.getByLabelText('Az elutasítás indoklása'),
+      '  Az adószám nem a cégé.  ',
+    );
+    await fireEvent.press(screen.getByText('Elutasítás elküldése'));
+
+    expect(mockedApi.decidePartnerApplication).toHaveBeenCalledWith(application.userId, {
+      decision: 'reject',
+      reason: 'Az adószám nem a cégé.',
+    });
+  });
+
+  it('says so when the application was decided meanwhile', async () => {
+    mockedApi.decidePartnerApplication.mockRejectedValue(new ApiError('not_found', 404));
+    await openApplication();
+    mockedApi.getPartnerApplications.mockResolvedValue([]);
+
+    await fireEvent.press(screen.getByText('Elutasítás'));
+    await fireEvent.changeText(screen.getByLabelText('Az elutasítás indoklása'), 'Hibás adatok');
+    await fireEvent.press(screen.getByText('Elutasítás elküldése'));
+
+    expect(await screen.findByText('Ezt a kérelmet közben már elbírálták.')).toBeOnTheScreen();
   });
 });
 

@@ -2,13 +2,16 @@ import * as WebBrowser from 'expo-web-browser';
 
 import { supabase } from '@/lib/supabase';
 
-import { signInWithGoogle } from './actions';
+import { confirmSignUp, signInWithGoogle } from './actions';
+import { useRegistrationStore } from './registration-store';
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
       signInWithOAuth: jest.fn(),
       exchangeCodeForSession: jest.fn(),
+      verifyOtp: jest.fn(),
+      updateUser: jest.fn(),
     },
   },
 }));
@@ -76,5 +79,63 @@ describe('signInWithGoogle', () => {
     });
 
     await expect(signInWithGoogle()).rejects.toThrow('Denied');
+  });
+});
+
+describe('confirmSignUp (D-008/22, D-009)', () => {
+  const pending = {
+    accountType: 'partner' as const,
+    email: 'info@fogashaz.hu',
+    password: 'new-password',
+    partner: {
+      displayName: 'Fogasház',
+      username: 'fogashaz',
+      companyName: 'Fogasház Kft.',
+      taxNumber: '12345676-2-42',
+      contactName: 'Kiss Anna',
+      contactPhone: '+36 30 123 4567',
+      address: '1073 Budapest, Akácfa utca 51.',
+      website: null,
+    },
+    logo: null,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    auth.verifyOtp.mockResolvedValue({ data: {}, error: null } as never);
+    auth.updateUser.mockResolvedValue({ data: {}, error: null } as never);
+    useRegistrationStore.setState({ pending });
+  });
+
+  it('applies the latest password and account type once the code proves the address', async () => {
+    await confirmSignUp('Info@Fogashaz.hu ', '123456');
+
+    expect(auth.updateUser).toHaveBeenCalledWith({ data: { account_type: 'partner' } });
+    expect(auth.updateUser).toHaveBeenCalledWith({ password: 'new-password' });
+    // The password is not kept after it is used; the rest waits for the application.
+    expect(useRegistrationStore.getState().pending).toMatchObject({
+      password: '',
+      partner: { companyName: 'Fogasház Kft.' },
+    });
+  });
+
+  it('accepts that the password is already the same', async () => {
+    auth.updateUser
+      .mockResolvedValueOnce({ data: {}, error: null } as never)
+      .mockResolvedValueOnce({
+        data: {},
+        error: { code: 'same_password' },
+      } as never);
+
+    await expect(confirmSignUp('info@fogashaz.hu', '123456')).resolves.toBeUndefined();
+  });
+
+  it('leaves other accounts alone and fails on a wrong code', async () => {
+    await confirmSignUp('someone@example.com', '123456');
+    expect(auth.updateUser).not.toHaveBeenCalled();
+
+    auth.verifyOtp.mockResolvedValue({ data: {}, error: new Error('invalid code') } as never);
+    await expect(confirmSignUp('info@fogashaz.hu', '000000')).rejects.toThrow('invalid code');
+    expect(auth.updateUser).not.toHaveBeenCalled();
   });
 });

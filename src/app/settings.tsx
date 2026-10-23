@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { isPartnerProfile } from '@shared/contracts/profile';
 import { AppButton } from '@/components/app-button';
 import { AppText } from '@/components/app-text';
 import { FormMessage } from '@/components/form-message';
@@ -10,6 +11,7 @@ import { ListRow } from '@/components/list-row';
 import { Screen } from '@/components/screen';
 import { SegmentedControl } from '@/components/segmented-control';
 import { deleteAccount, signOut } from '@/features/auth/actions';
+import { useMyProfile } from '@/features/profile/use-my-profile';
 import { usePreferencesStore } from '@/features/settings/preferences-store';
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -28,6 +30,7 @@ export default function SettingsScreen() {
   const language = usePreferencesStore((state) => state.language);
   const setTheme = usePreferencesStore((state) => state.setTheme);
   const setLanguage = usePreferencesStore((state) => state.setLanguage);
+  const profile = useMyProfile().data?.profile;
   const [busy, setBusy] = useState<'signOut' | 'delete' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,9 +80,18 @@ export default function SettingsScreen() {
           onChange={setLanguage}
         />
       </Section>
-      <Section title={t('settings.taste')}>
-        <ListRow label={t('settings.editTaste')} href="/edit-taste" />
-      </Section>
+      {/* D-008/11: partners have no taste. */}
+      {profile && isPartnerProfile(profile) ? null : (
+        <Section title={t('settings.taste')}>
+          <ListRow label={t('settings.editTaste')} href="/edit-taste" />
+        </Section>
+      )}
+      {/* D-008/23: only the team's accounts review partner applications. */}
+      {profile?.isAdmin ? (
+        <Section title={t('admin.section')}>
+          <ListRow label={t('admin.applications')} href="/partner-applications" />
+        </Section>
+      ) : null}
       <Section title={t('settings.account')}>
         <FormMessage message={error} />
         <AppButton

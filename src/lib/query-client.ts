@@ -24,6 +24,7 @@ export const queryKeys = {
   taste: ['taste'] as const,
   settings: ['settings'] as const,
   usernameAvailability: (username: string) => ['username-availability', username] as const,
+  partnerApplications: ['partner-applications'] as const,
   /** Everything about events; invalidated when the database reports a change (D-007/2). */
   events: ['events'] as const,
   nearbyEvents: (lat: number, lng: number) => ['events', 'nearby', lat, lng] as const,

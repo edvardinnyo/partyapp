@@ -20,7 +20,6 @@ Gyűjtőlista azokról a feladatokról, amelyeket a nyilvános kiadás (8. fázi
 
 ## Események és térkép (F1, F5, D-007)
 
-- [ ] **A mintaesemények törlése** (I-012): `delete from public.events where source = 'sample';`, majd `delete from public.venues where source = 'sample';` (Supabase → SQL Editor). A valódi események a `csv` vagy a partnerek forrásában vannak, ezeket nem érinti.
 - [ ] **Google Maps-kulcs Androidra:** Google Cloudban „Maps SDK for Android” kulcs, a `hu.nocturnal.app` csomagnévre és az EAS aláírókulcsának SHA-1 ujjlenyomatára korlátozva, `GOOGLE_MAPS_ANDROID_API_KEY` néven EAS-környezeti változóként. Nélküle a térkép az androidos buildben üres.
 - [ ] A helyadat-engedély szövegének (iOS: magyarul és angolul) átnézése a végleges arculattal; az adatvédelmi tájékoztatóban a helyadat kezelésének leírása (csak előtérben, kerekítve, tárolás nélkül).
 - [ ] **Hirdetések forrása** (D-007/3): saját hirdetők vagy hirdetési hálózat. Az AdMob development buildet, GDPR-hozzájáruláskérést és iOS-en követési engedélyt (ATT) igényel.
@@ -30,6 +29,8 @@ Gyűjtőlista azokról a feladatokról, amelyeket a nyilvános kiadás (8. fázi
 - [ ] Végleges adatvédelmi tájékoztató (jogásszal), nyilvános URL-en is (App Store, Google Play, Google Auth Platform). Szövegváltozáskor a `PRIVACY_POLICY_VERSION` emelése az API-ban.
 - [ ] Az adatfeldolgozók felsorolása (Supabase, Resend, Google) és az adatfeldolgozási szerződések (DPA).
 - [ ] A 18+ szabály (D-004/10) jogi ellenőrzése.
+- [ ] **Partneri felhasználási feltételek** (D-008/12): a helykitöltő szöveg cseréje jogász által írt feltételekre (ki felel az esemény tartalmáért és a feltöltött képekért, az adminok leszedési és módosítási joga). **Emlékeztetőt kértetek rá a kiadás előtt.**
+- [ ] **Tartalombejelentés és letiltás** (Q23 a, E-002): az App Store felhasználói tartalomnál megköveteli; a profilok bejelentését elutasítottuk, ezt a kiadás előtt újra el kell dönteni.
 
 ## Áruházak
 

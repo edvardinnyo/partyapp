@@ -108,6 +108,15 @@ export default function SignInScreen() {
           onPress={() => router.push('/register')}
         />
       </View>
+      {/* D-008/1: companies and organisers register as partners. */}
+      <View style={styles.register}>
+        <AppText variant="muted">{t('partners.prompt')}</AppText>
+        <AppButton
+          label={t('partners.registerLink')}
+          variant="link"
+          onPress={() => router.push('/partner-register')}
+        />
+      </View>
       <AppButton
         label={t('auth.privacyLink')}
         variant="link"

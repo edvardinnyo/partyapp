@@ -2,12 +2,21 @@
 // index.ts wires it to Supabase and the database.
 import { Hono } from 'hono';
 
+import { type PartnerApplication, partnerDecisionInputSchema } from '../_shared/contracts/admin.ts';
 import {
+  type PartnerDetails,
+  partnerApplicationInputSchema,
+  partnerResubmissionInputSchema,
+} from '../_shared/contracts/partner.ts';
+import {
+  type AccountType,
   type ApiErrorCode,
   createProfileInputSchema,
   normalizeUsername,
+  type PartnerStatus,
   type Profile,
   updateProfileInputSchema,
+  userIdSchema,
   usernameSchema,
 } from '../_shared/contracts/profile.ts';
 import {
@@ -25,6 +34,10 @@ import {
   userSettingsSchema,
 } from '../_shared/contracts/settings.ts';
 import { shownEventWindow } from '../_shared/events/lifecycle.ts';
+import {
+  clashesWithProtectedNames,
+  type ProtectedName,
+} from '../_shared/partners/protected-names.ts';
 import { type RecommendationTaste, scoreEvent } from '../_shared/recommendation/score-event.ts';
 import {
   computeTaste,
@@ -35,6 +48,9 @@ import {
 /** Version of the privacy notice users accept at sign-up. Bump it when the text changes. */
 export const PRIVACY_POLICY_VERSION = 'draft-2026-10';
 
+/** Version of the partner terms (D-008/12). Bump it when the text changes. */
+export const PARTNER_TERMS_VERSION = 'draft-2026-10';
+
 /** A safety limit for one map's worth of events (the nearest ones are kept). */
 export const NEARBY_EVENTS_LIMIT = 500;
 
@@ -44,6 +60,7 @@ export type StoredProfile = {
   displayName: string;
   avatarPath: string | null;
   tasteCompletedAt: Date | null;
+  accountType: AccountType;
 };
 
 export type NewProfile = {
@@ -51,7 +68,9 @@ export type NewProfile = {
   username: string;
   displayName: string;
   avatarPath: string | null;
-  adultConfirmedAt: Date;
+  accountType: AccountType;
+  /** Null for a partner: a company has no age (D-008). */
+  adultConfirmedAt: Date | null;
   privacyAcceptedAt: Date;
   privacyPolicyVersion: string;
 };
@@ -65,6 +84,82 @@ export interface ProfileRepository {
     changes: { displayName?: string; avatarPath?: string | null },
     at: Date,
   ): Promise<StoredProfile | null>;
+  /** D-008/5: the names of approved partners, which nobody else may take. */
+  findProtectedNames(): Promise<ProtectedName[]>;
+}
+
+export type StoredPartner = PartnerDetails & {
+  status: PartnerStatus;
+  bio: string | null;
+  rejectionReason: string | null;
+  submittedAt: Date;
+};
+
+export type NewPartner = PartnerDetails & {
+  termsAcceptedAt: Date;
+  termsVersion: string;
+  submittedAt: Date;
+};
+
+export interface PartnerRepository {
+  find(userId: string): Promise<StoredPartner | null>;
+  /** Creates the public profile and the partner details together. */
+  createApplication(
+    profile: NewProfile,
+    partner: NewPartner,
+  ): Promise<StoredProfile | 'username_taken' | 'profile_exists'>;
+  /** A rejected application corrected: pending again, with the new details. */
+  resubmit(userId: string, displayName: string, details: PartnerDetails, at: Date): Promise<void>;
+  updateBio(userId: string, bio: string | null, at: Date): Promise<void>;
+}
+
+export type PartnerApplicationNotice = {
+  userId: string;
+  accountEmail: string | null;
+  displayName: string;
+  username: string;
+  details: PartnerDetails;
+  submittedAt: Date;
+  resubmission: boolean;
+};
+
+export type PartnerDecisionNotice = {
+  /** The partner account's email address. */
+  to: string;
+  contactName: string;
+  displayName: string;
+  username: string;
+  approved: boolean;
+  /** Only for a rejection. */
+  reason: string | null;
+};
+
+export interface PartnerNotifier {
+  /** D-008/4: tells the team about a new or a corrected application. */
+  applicationSubmitted(notice: PartnerApplicationNotice): Promise<void>;
+  /** D-008/4: tells the partner the team's decision. */
+  applicationDecided(notice: PartnerDecisionNotice): Promise<void>;
+}
+
+export type PendingApplication = PartnerDetails & {
+  userId: string;
+  displayName: string;
+  username: string;
+  avatarPath: string | null;
+  accountEmail: string | null;
+  submittedAt: Date;
+};
+
+export interface AdminRepository {
+  isAdmin(userId: string): Promise<boolean>;
+  /** Applications waiting for the team, the oldest first. */
+  pendingApplications(): Promise<PendingApplication[]>;
+  /** Decides a pending application; null when there is no pending one for this user. */
+  decide(
+    userId: string,
+    decision: { approved: boolean; reason: string | null },
+    at: Date,
+  ): Promise<PendingApplication | null>;
 }
 
 export interface TasteRepository {
@@ -125,6 +220,9 @@ export interface Accounts {
 
 export type ApiDeps = {
   profiles: ProfileRepository;
+  partners: PartnerRepository;
+  partnerNotifier: PartnerNotifier;
+  admins: AdminRepository;
   tastes: TasteRepository;
   settings: SettingsRepository;
   events: EventRepository;
@@ -135,6 +233,8 @@ export type ApiDeps = {
 /** Per-request values, resolved by index.ts after the caller's JWT is verified. */
 export type ApiBindings = {
   userId: string;
+  /** From the JWT; the team sees it with a partner application. */
+  email: string | null;
   avatars: AvatarStorage;
   accounts: Accounts;
 };
@@ -160,19 +260,165 @@ function toEventBase(event: StoredEvent) {
   };
 }
 
-export function createApp({ profiles, tastes, settings, events, newId, now }: ApiDeps) {
+/** D-004 rules and D-008/5 protected names; null for a username that breaks the rules. */
+async function usernameAvailability(
+  profiles: ProfileRepository,
+  input: string,
+  userId: string | null,
+) {
+  const parsed = usernameSchema.safeParse(normalizeUsername(input));
+  if (!parsed.success) {
+    return null;
+  }
+  if (await profiles.isUsernameTaken(parsed.data)) {
+    return { available: false, reason: 'taken' };
+  }
+  const protectedNames = await profiles.findProtectedNames();
+  if (clashesWithProtectedNames([parsed.data], protectedNames, userId ?? undefined)) {
+    return { available: false, reason: 'protected' };
+  }
+  return { available: true, reason: null };
+}
+
+/**
+ * Routes that need no signed-in user, only the app's publishable key. D-008/22: a partner fills
+ * in the whole application, username included, before the email code confirms the account.
+ */
+export function createPublicApp({ profiles }: Pick<ApiDeps, 'profiles'>) {
+  const app = new Hono().basePath('/api/public');
+
+  app.get('/usernames/:username', async (c) => {
+    const result = await usernameAvailability(profiles, c.req.param('username'), null);
+    return result ? c.json(result) : c.json(apiError('invalid_input'), 400);
+  });
+
+  app.onError((error, c) => {
+    console.error(error);
+    return c.json(apiError('internal'), 500);
+  });
+
+  return app;
+}
+
+export function createApp({
+  profiles,
+  partners,
+  partnerNotifier,
+  admins,
+  tastes,
+  settings,
+  events,
+  newId,
+  now,
+}: ApiDeps) {
   const app = new Hono<{ Bindings: ApiBindings }>().basePath('/api');
 
   async function toProfile(stored: StoredProfile, avatars: AvatarStorage): Promise<Profile> {
+    const partner = stored.accountType === 'partner' ? await partners.find(stored.id) : null;
     return {
       id: stored.id,
       username: stored.username,
       displayName: stored.displayName,
       avatarUrl: stored.avatarPath ? await avatars.createSignedUrl(stored.avatarPath) : null,
       tasteCompleted: stored.tasteCompletedAt !== null,
-      topGenres: await tastes.getTopGenres(stored.id),
+      // D-008/11: a partner has no taste.
+      topGenres: stored.accountType === 'person' ? await tastes.getTopGenres(stored.id) : [],
+      accountType: stored.accountType,
+      verified: partner?.status === 'approved',
+      partner: partner
+        ? {
+            status: partner.status,
+            rejectionReason: partner.rejectionReason,
+            companyName: partner.companyName,
+            taxNumber: partner.taxNumber,
+            contactName: partner.contactName,
+            contactPhone: partner.contactPhone,
+            address: partner.address,
+            website: partner.website,
+            bio: partner.bio,
+          }
+        : null,
+      isAdmin: await admins.isAdmin(stored.id),
     };
   }
+
+  async function toApplication(
+    application: PendingApplication,
+    avatars: AvatarStorage,
+  ): Promise<PartnerApplication> {
+    const { avatarPath, submittedAt, ...rest } = application;
+    return {
+      ...rest,
+      avatarUrl: avatarPath ? await avatars.createSignedUrl(avatarPath) : null,
+      submittedAt: submittedAt.toISOString(),
+    };
+  }
+
+  /** D-008/5: whether any of the names comes too close to a verified partner's. */
+  async function isProtected(names: string[], userId: string) {
+    return clashesWithProtectedNames(names, await profiles.findProtectedNames(), userId);
+  }
+
+  /** The application is saved either way; a failed email must not lose it. */
+  async function notifyTeam(notice: PartnerApplicationNotice) {
+    try {
+      await partnerNotifier.applicationSubmitted(notice);
+    } catch (error) {
+      console.error('[partners] the application email could not be sent', error);
+    }
+  }
+
+  /** The decision stands either way; the partner also sees it in the app. */
+  async function notifyPartner(notice: PartnerDecisionNotice) {
+    try {
+      await partnerNotifier.applicationDecided(notice);
+    } catch (error) {
+      console.error('[partners] the decision email could not be sent', error);
+    }
+  }
+
+  // D-008/23: the team reviews partner applications in the app.
+  app.get('/admin/partner-applications', async (c) => {
+    if (!(await admins.isAdmin(c.env.userId))) {
+      return c.json(apiError('forbidden'), 403);
+    }
+    const pending = await admins.pendingApplications();
+    const applications = await Promise.all(
+      pending.map((application) => toApplication(application, c.env.avatars)),
+    );
+    return c.json({ applications });
+  });
+
+  app.post('/admin/partner-applications/:userId/decision', async (c) => {
+    if (!(await admins.isAdmin(c.env.userId))) {
+      return c.json(apiError('forbidden'), 403);
+    }
+    const parsed = partnerDecisionInputSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) {
+      return c.json(apiError('invalid_input'), 400);
+    }
+    const target = userIdSchema.safeParse(c.req.param('userId'));
+    const approved = parsed.data.decision === 'approve';
+    const reason = parsed.data.decision === 'reject' ? parsed.data.reason : null;
+    // Only a pending application is decided: a second reviewer gets 404, not a second email.
+    const decided = target.success
+      ? await admins.decide(target.data, { approved, reason }, now())
+      : null;
+    if (!decided) {
+      return c.json(apiError('not_found'), 404);
+    }
+    if (decided.accountEmail) {
+      await notifyPartner({
+        to: decided.accountEmail,
+        contactName: decided.contactName,
+        displayName: decided.displayName,
+        username: decided.username,
+        approved,
+        reason,
+      });
+    }
+    return c.body(null, 204);
+  });
 
   app.get('/me', async (c) => {
     const stored = await profiles.findById(c.env.userId);
@@ -180,11 +426,8 @@ export function createApp({ profiles, tastes, settings, events, newId, now }: Ap
   });
 
   app.get('/usernames/:username', async (c) => {
-    const parsed = usernameSchema.safeParse(normalizeUsername(c.req.param('username')));
-    if (!parsed.success) {
-      return c.json(apiError('invalid_input'), 400);
-    }
-    return c.json({ available: !(await profiles.isUsernameTaken(parsed.data)) });
+    const result = await usernameAvailability(profiles, c.req.param('username'), c.env.userId);
+    return result ? c.json(result) : c.json(apiError('invalid_input'), 400);
   });
 
   app.post('/profile/avatar-upload', async (c) => {
@@ -204,6 +447,9 @@ export function createApp({ profiles, tastes, settings, events, newId, now }: Ap
     if (avatarPath !== null && !(await isUsableAvatar(avatarPath, userId, avatars))) {
       return c.json(apiError('invalid_avatar'), 400);
     }
+    if (await isProtected([username, displayName], userId)) {
+      return c.json(apiError('name_protected'), 409);
+    }
 
     const acceptedAt = now();
     const created = await profiles.create({
@@ -211,6 +457,7 @@ export function createApp({ profiles, tastes, settings, events, newId, now }: Ap
       username,
       displayName,
       avatarPath,
+      accountType: 'person',
       adultConfirmedAt: acceptedAt,
       privacyAcceptedAt: acceptedAt,
       privacyPolicyVersion: PRIVACY_POLICY_VERSION,
@@ -221,26 +468,133 @@ export function createApp({ profiles, tastes, settings, events, newId, now }: Ap
     return c.json({ profile: await toProfile(created, avatars) }, 201);
   });
 
-  // D-006: edit the own profile after sign-up. The username stays fixed (D-004).
-  app.patch('/profile', async (c) => {
-    const parsed = updateProfileInputSchema.safeParse(await c.req.json().catch(() => null));
+  // D-008: a partner's first application creates its profile; the team is told by email and
+  // decides. Until then the partner can sign in but cannot publish.
+  app.post('/partner/application', async (c) => {
+    const parsed = partnerApplicationInputSchema.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) {
       return c.json(apiError('invalid_input'), 400);
     }
-    const { displayName, avatarPath } = parsed.data;
+    const { displayName, username, avatarPath, ...input } = parsed.data;
+    const details: PartnerDetails = {
+      companyName: input.companyName,
+      taxNumber: input.taxNumber,
+      contactName: input.contactName,
+      contactPhone: input.contactPhone,
+      address: input.address,
+      website: input.website,
+    };
+    const { userId, avatars } = c.env;
+
+    if (avatarPath !== null && !(await isUsableAvatar(avatarPath, userId, avatars))) {
+      return c.json(apiError('invalid_avatar'), 400);
+    }
+    if (await isProtected([username, displayName], userId)) {
+      return c.json(apiError('name_protected'), 409);
+    }
+
+    const submittedAt = now();
+    const created = await partners.createApplication(
+      {
+        id: userId,
+        username,
+        displayName,
+        avatarPath,
+        accountType: 'partner',
+        adultConfirmedAt: null,
+        privacyAcceptedAt: submittedAt,
+        privacyPolicyVersion: PRIVACY_POLICY_VERSION,
+      },
+      {
+        ...details,
+        termsAcceptedAt: submittedAt,
+        termsVersion: PARTNER_TERMS_VERSION,
+        submittedAt,
+      },
+    );
+    if (created === 'username_taken' || created === 'profile_exists') {
+      return c.json(apiError(created), 409);
+    }
+    await notifyTeam({
+      userId,
+      accountEmail: c.env.email,
+      displayName,
+      username,
+      details,
+      submittedAt,
+      resubmission: false,
+    });
+    return c.json({ profile: await toProfile(created, avatars) }, 201);
+  });
+
+  // D-008/4: after a rejection the partner corrects the application and sends it again.
+  app.put('/partner/application', async (c) => {
+    const parsed = partnerResubmissionInputSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) {
+      return c.json(apiError('invalid_input'), 400);
+    }
+    const { displayName, ...details } = parsed.data;
     const { userId, avatars } = c.env;
 
     const current = await profiles.findById(userId);
     if (!current) {
       return c.json(apiError('profile_missing'), 409);
     }
+    const partner = current.accountType === 'partner' ? await partners.find(userId) : null;
+    if (partner?.status !== 'rejected') {
+      return c.json(apiError('forbidden'), 403);
+    }
+    if (await isProtected([displayName], userId)) {
+      return c.json(apiError('name_protected'), 409);
+    }
+
+    const submittedAt = now();
+    await partners.resubmit(userId, displayName, details, submittedAt);
+    await notifyTeam({
+      userId,
+      accountEmail: c.env.email,
+      displayName,
+      username: current.username,
+      details,
+      submittedAt,
+      resubmission: true,
+    });
+    const updated = await profiles.findById(userId);
+    return c.json({ profile: updated ? await toProfile(updated, avatars) : null });
+  });
+
+  // D-006: edit the own profile after sign-up. The username stays fixed (D-004). A partner
+  // changes its logo and introduction here; its public name belongs to the application (D-008).
+  app.patch('/profile', async (c) => {
+    const parsed = updateProfileInputSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) {
+      return c.json(apiError('invalid_input'), 400);
+    }
+    const { displayName, avatarPath, bio } = parsed.data;
+    const { userId, avatars } = c.env;
+
+    const current = await profiles.findById(userId);
+    if (!current) {
+      return c.json(apiError('profile_missing'), 409);
+    }
+    const isPartner = current.accountType === 'partner';
+    if ((isPartner && displayName !== undefined) || (!isPartner && bio !== undefined)) {
+      return c.json(apiError('forbidden'), 403);
+    }
     if (typeof avatarPath === 'string' && !(await isUsableAvatar(avatarPath, userId, avatars))) {
       return c.json(apiError('invalid_avatar'), 400);
     }
+    if (displayName !== undefined && (await isProtected([displayName], userId))) {
+      return c.json(apiError('name_protected'), 409);
+    }
 
-    const updated = await profiles.update(userId, { displayName, avatarPath }, now());
+    const at = now();
+    const updated = await profiles.update(userId, { displayName, avatarPath }, at);
     if (!updated) {
       return c.json(apiError('profile_missing'), 409);
+    }
+    if (bio !== undefined) {
+      await partners.updateBio(userId, bio, at);
     }
     // A replaced or removed picture is deleted right away, so no orphaned files stay behind.
     if (avatarPath !== undefined && current.avatarPath && current.avatarPath !== avatarPath) {
@@ -261,8 +615,13 @@ export function createApp({ profiles, tastes, settings, events, newId, now }: Ap
       return c.json(apiError('invalid_input'), 400);
     }
     const { userId, avatars } = c.env;
-    if (!(await profiles.findById(userId))) {
+    const current = await profiles.findById(userId);
+    if (!current) {
       return c.json(apiError('profile_missing'), 409);
+    }
+    // D-008/11: partners do not choose a taste.
+    if (current.accountType === 'partner') {
+      return c.json(apiError('forbidden'), 403);
     }
 
     const { genres } = parsed.data;

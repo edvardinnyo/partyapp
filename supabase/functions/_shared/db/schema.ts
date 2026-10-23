@@ -19,11 +19,16 @@ import { authUsers } from 'drizzle-orm/supabase';
 
 import { EVENT_KINDS } from '../contracts/events.ts';
 import { GENRES } from '../contracts/genres.ts';
+import { ACCOUNT_TYPES, PARTNER_BIO_MAX_LENGTH, PARTNER_STATUSES } from '../contracts/profile.ts';
 import { DEFAULT_RADIUS_KM, MAX_RADIUS_KM, MIN_RADIUS_KM } from '../contracts/settings.ts';
 import type { GenreScore } from '../taste/compute-taste.ts';
 
 /** D-005: the common genre list, shared with events later (Q3). */
 export const genreEnum = pgEnum('genre', GENRES);
+
+/** D-008/3: a person or a partner (company), decided at registration. */
+export const accountTypeEnum = pgEnum('account_type', ACCOUNT_TYPES);
+export const partnerStatusEnum = pgEnum('partner_status', PARTNER_STATUSES);
 
 /**
  * One row per signed-up user, created after the email is confirmed (D-004).
@@ -38,7 +43,9 @@ export const profiles = pgTable(
     username: text('username').notNull().unique(),
     displayName: text('display_name').notNull(),
     avatarPath: text('avatar_path'),
-    adultConfirmedAt: timestamp('adult_confirmed_at', { withTimezone: true }).notNull(),
+    accountType: accountTypeEnum('account_type').notNull().default('person'),
+    // D-004/10: people confirm they are 18+; a partner is a company (D-008).
+    adultConfirmedAt: timestamp('adult_confirmed_at', { withTimezone: true }),
     privacyAcceptedAt: timestamp('privacy_accepted_at', { withTimezone: true }).notNull(),
     privacyPolicyVersion: text('privacy_policy_version').notNull(),
     // Set when the taste step is first completed (onboarding, D-004/5).
@@ -49,10 +56,48 @@ export const profiles = pgTable(
   (table) => [
     check('profiles_username_format', sql`${table.username} ~ '^[a-z0-9._]{3,20}$'`),
     check('profiles_display_name_length', sql`char_length(${table.displayName}) between 1 and 50`),
+    check(
+      'profiles_person_adult_confirmed',
+      sql`${table.accountType} = 'partner' or ${table.adultConfirmedAt} is not null`,
+    ),
   ],
 ).enableRLS();
 
 export type ProfileRow = typeof profiles.$inferSelect;
+
+/**
+ * D-008: the company behind a partner account and the state of its application. Only the
+ * partner and the team see these details; the public profile is the `profiles` row.
+ */
+export const partners = pgTable(
+  'partners',
+  {
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    status: partnerStatusEnum('status').notNull().default('pending'),
+    companyName: text('company_name').notNull(),
+    taxNumber: text('tax_number').notNull(),
+    contactName: text('contact_name').notNull(),
+    contactPhone: text('contact_phone').notNull(),
+    address: text('address').notNull(),
+    website: text('website'),
+    bio: text('bio'),
+    termsAcceptedAt: timestamp('terms_accepted_at', { withTimezone: true }).notNull(),
+    termsVersion: text('terms_version').notNull(),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }).notNull(),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    rejectionReason: text('rejection_reason'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check(
+      'partners_bio_length',
+      sql`char_length(${table.bio}) <= ${sql.raw(String(PARTNER_BIO_MAX_LENGTH))}`,
+    ),
+  ],
+).enableRLS();
 
 /** The manual choice (D-001, D-005): `position` 0 is the favourite. */
 export const tasteGenres = pgTable(
@@ -166,3 +211,14 @@ export const events = pgTable(
     index('events_venue_id_idx').on(table.venueId),
   ],
 ).enableRLS();
+
+/**
+ * D-008/23: the team's accounts, which review partner applications in the app. Granted with
+ * SQL only (`insert into public.admins (user_id) …`); the app has no way to change it.
+ */
+export const admins = pgTable('admins', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => profiles.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();

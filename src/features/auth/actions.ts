@@ -1,10 +1,12 @@
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
+import type { AccountType } from '@shared/contracts/profile';
 import { api } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 
 import { useAuthStore } from './auth-store';
+import { pendingRegistrationFor, useRegistrationStore } from './registration-store';
 
 export async function signIn(email: string, password: string): Promise<void> {
   const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
@@ -17,12 +19,19 @@ export async function signIn(email: string, password: string): Promise<void> {
  * D-004: Supabase emails a 6-digit code to confirm the address.
  * For an address that already has a confirmed account Supabase sends nothing and returns a user
  * without identities (so accounts cannot be enumerated); the app then points to signing in.
+ * D-008/3: a partner registers from its own screen; the account type travels with the user, so
+ * after the code the right onboarding opens (the profile itself fixes the type for good).
  */
 export async function signUp(
   email: string,
   password: string,
+  accountType: AccountType = 'person',
 ): Promise<'codeSent' | 'accountExists'> {
-  const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
+  const { data, error } = await supabase.auth.signUp({
+    email: email.trim(),
+    password,
+    options: { data: { account_type: accountType } },
+  });
   if (error) {
     throw error;
   }
@@ -37,6 +46,34 @@ export async function confirmSignUp(email: string, code: string): Promise<void> 
   });
   if (error) {
     throw error;
+  }
+  await applyPendingRegistration(email);
+}
+
+/**
+ * D-008/22, D-009: someone who stopped before the code may register again with the same,
+ * still unconfirmed address. Supabase keeps such an account's first password and account type,
+ * so once the code proves the address, the choices of this registration are applied.
+ */
+async function applyPendingRegistration(email: string) {
+  const store = useRegistrationStore.getState();
+  const pending = pendingRegistrationFor(store.pending, email.trim());
+  if (!pending) {
+    return;
+  }
+  try {
+    await supabase.auth.updateUser({ data: { account_type: pending.accountType } });
+    const { error } = await supabase.auth.updateUser({ password: pending.password });
+    // The same password as before is the usual case: nothing to change.
+    if (error && error.code !== 'same_password') {
+      throw error;
+    }
+  } catch {
+    if (__DEV__) {
+      console.warn('[auth] the registration password or account type could not be applied');
+    }
+  } finally {
+    store.forgetPassword();
   }
 }
 

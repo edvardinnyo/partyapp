@@ -8,9 +8,12 @@ import { type PickedAvatar, pickAvatar } from './avatar-upload';
  * Picking a new profile picture from the library or the camera, shared by sign-up and editing.
  * Errors are reported through `onError` so each screen shows them in its own message line.
  */
-export function useAvatarPicker(onError: (message: string) => void) {
+export function useAvatarPicker(
+  onError: (message: string) => void,
+  initial: PickedAvatar | null = null,
+) {
   const { t } = useTranslation();
-  const [picked, setPicked] = useState<PickedAvatar | null>(null);
+  const [picked, setPicked] = useState<PickedAvatar | null>(initial);
 
   async function pick(source: 'library' | 'camera') {
     try {

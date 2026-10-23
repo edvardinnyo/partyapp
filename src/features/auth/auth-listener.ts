@@ -13,7 +13,8 @@ export function useAuthListener() {
     // Supabase emits INITIAL_SESSION right away with the stored session (or null).
     // Only synchronous work here: awaiting Supabase calls inside this callback can deadlock.
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user.id ?? null);
+      const isPartner = session?.user.user_metadata?.account_type === 'partner';
+      setUser(session?.user.id ?? null, isPartner ? 'partner' : 'person', session?.user.email);
       if (event === 'SIGNED_OUT') {
         // Never show the previous user's data to the next one.
         queryClient.removeQueries();

@@ -51,7 +51,6 @@ A `.env` nélkül az app induláskor hibaüzenettel leáll, mert nem tudja, mely
 | `npm run db:generate` | Új adatbázis-migráció generálása a Drizzle-sémából |
 | `npm run db:push` | A migrációk felküldése a Supabase-projektre |
 | `npm run functions:deploy` | Az `api` Edge Function telepítése |
-| `npm run events:import -- <fájl.csv>` | Események betöltése táblázatból (lásd: Események feltöltése) |
 
 A CI (GitHub Actions) minden pull requesten lefuttatja a typecheck, a lint és a tesztek lépést.
 
@@ -73,7 +72,7 @@ src/
 │  ├─ profile/     # profil (navbar nélkül)
 │  └─ settings.tsx # Beállítások (navbar nélkül)
 ├─ components/     # közös UI-elemek
-├─ features/       # funkciónkénti logika és állapot (auth, events, location, map, profile, settings, taste)
+├─ features/       # funkciónkénti logika és állapot (auth, events, location, map, partners, profile, settings, taste)
 ├─ lib/            # Supabase-kliens, API-kliens, lekérdezés-gyorsítótár
 ├─ i18n/           # felületi szövegek (locales/hu.ts a forrás, az en.ts ugyanazokat a kulcsokat adja)
 ├─ theme/          # színek, sötét és világos mód
@@ -81,12 +80,11 @@ src/
 supabase/
 ├─ functions/
 │  ├─ api/         # az egyetlen API Edge Function (app.ts: útvonalak és szabályok; index.ts: bekötés)
-│  └─ _shared/     # közös kód: adatszerződések, adatbázisséma, ízlés, ajánlás, eseményforrások
+│  └─ _shared/     # közös kód: adatszerződések, adatbázisséma, ízlés, ajánlás, partnerek
 ├─ migrations/     # SQL-migrációk (a drizzle-kit generálja őket, plusz kézzel írtak)
 ├─ templates/      # e-mail-sablonok (megerősítő és jelszó-visszaállító kód)
 └─ config.toml     # helyi Supabase-beállítások
-scripts/           # fejlesztői parancsok (helyi hálózati indítás, eseményimport)
-data/events/       # eseménytáblázatok (most: budapesti mintaadat)
+scripts/           # fejlesztői parancsok (helyi hálózati indítás)
 __mocks__/         # a natív modulok (térkép, csúszka, helymeghatározás) helyettesítői a tesztekhez
 ```
 
@@ -103,37 +101,24 @@ A projekt: `ryqbsalvqwvamhrcliht` (Frankfurt). A Supabase CLI fejlesztői függ�
   - Authentication → URL Configuration → Redirect URLs: `exp://**` (az Expo Go tunnel-címeihez; csak fejlesztéshez, kiadás előtt törlendő) és `nocturnal://**`. IP-címes `exp://192.168…` bejegyzés hiába kerül fel: a Supabase az IP-címre való visszairányítást a listától függetlenül elutasítja.
 - **E-mail-küldés:** a Supabase beépített szolgáltatása csak a Supabase-szervezet tagjainak küld, és óránként csak néhány levelet. Teszteléshez mindkét fejlesztő legyen tagja a szervezetnek.
 
-## Események feltöltése (CSV)
+## Partnerfiókok (D-008)
 
-Az eseményeket egyelőre mi töltjük fel egy táblázatból (D-007/1). Egy sor egy esemény; a táblázat bármilyen táblázatkezelőben szerkeszthető, CSV-ként kell menteni (Excelben: **„CSV UTF-8 (pontosvesszővel tagolt)”**). Minta: [data/events/budapest-sample.csv](data/events/budapest-sample.csv).
+Az eseményeket a partnerek (klubok, bárok, koncerthelyszínek, szervezők) maguk töltik fel, a saját fiókjukból.
 
-| Oszlop | Kötelező | Példa | Megjegyzés |
-|---|---|---|---|
-| `id` | igen | `2026-10-24-techno` | Az esemény állandó azonosítója a táblázatban. Ha megváltozik, új eseménynek számít. |
-| `title` | igen | `Techno Éjszaka` | |
-| `kind` | igen | `club` | `club`, `bar`, `concert`, `festival` (vagy magyarul: klub, bár, koncert, fesztivál) |
-| `starts_at` | igen | `2026-10-24 22:00` | Budapesti idő. A magyar Excel alakja is jó: `2026. 10. 24. 22:00`. |
-| `ends_at` | igen | `2026-10-25 05:00` | Későbbi kell legyen, mint a kezdés. |
-| `genres` | igen | `techno\|house` | A közös műfajlista azonosítói, `\|` jellel elválasztva (lásd alább). |
-| `performers` | nem | `DJ Valaki\|Másik DJ` | `\|` jellel elválasztva. |
-| `venue_id` | igen | `fogashaz` | A helyszín állandó azonosítója; ugyanannál a helyszínnél minden sorban ugyanaz. |
-| `venue_name` | igen | `Fogasház` | Ugyanannál a helyszínnél minden sorban azonos kell legyen (név, cím, koordináta). |
-| `venue_address` | igen | `1073 Budapest, Akácfa u. 51.` | |
-| `venue_lat`, `venue_lng` | igen | `47.4979`, `19.0402` | Google Mapsben a helyre jobb gombbal kattintva másolható; az első szám a `venue_lat`. Tizedesvessző is jó. |
-| `ticket_url` | nem | | A partner jegyoldala, később (D-007/4). |
-
-**Műfajok:** `techno`, `house`, `drum-and-bass`, `trance`, `hardstyle`, `bass-dubstep`, `edm`, `hip-hop-rap`, `rnb-soul`, `pop`, `rock`, `metal`, `punk`, `indie-alternative`, `jazz`, `funk-disco`, `reggae-dancehall`, `latin-reggaeton`, `classical`, `folk`, `mulatos`, `retro`.
-
-```sh
-npm run events:import -- esemenyek.csv --dry-run   # csak ellenőriz, nem tölt fel semmit
-npm run events:import -- esemenyek.csv             # feltölt; a meglévő eseményeket frissíti
-npm run events:import -- esemenyek.csv --prune     # a táblázatból törölt, még le nem zárult eseményeket is törli
-```
-
-- Ha bármelyik sor hibás, a parancs semmit nem tölt fel, és soronként kiírja, mi a hiba.
-- Ugyanazt a táblázatot újra feltöltve nem lesz duplikáció: a változott sorok frissülnek, a többi változatlan marad. A futó appokban az új és a módosított események azonnal megjelennek.
-- A `--source=név` kapcsolóval több, egymástól független forrás is kezelhető (alapértelmezés: `csv`). A mintaadat a `sample` forrásban van: `npm run events:import -- data/events/budapest-sample.csv --source=sample`. Kiadás előtt a mintákat törölni kell (lásd [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)).
-- A parancs a Supabase CLI-n keresztül fut, ezért előbb be kell lépni: `npx supabase login`.
+- **Regisztráció:** a belépés és a regisztráció képernyő alján, „Partnerregisztráció”. Csak e-mail-címmel és jelszóval lehet (Google nélkül). Előbb a teljes kérelmet kell kitölteni, a 6 jegyű kód a végén jön, és a kód beírása után a kérelem magától elmegy (D-008/22). Aki a kód előtt abbahagyja, később ugyanazzal a címmel újrakezdheti.
+- **Kérelem:** nyilvános név, felhasználónév, logó, cégnév, adószám (az ellenőrző számjeggyel együtt ellenőrizve), kapcsolattartó és telefonszám, a helyszín címe, opcionálisan weboldal; a partner elfogadja a partneri feltételeket és az adatvédelmi tájékoztatót. Ízlést nem választ.
+- **Értesítés a csapatnak:** minden beküldött és javított kérelemről e-mail megy a `PARTNER_REVIEW_EMAIL` címre (`partner@nocturnal.hu`), a Resend API-n keresztül. Ehhez két Supabase secret kell:
+  ```sh
+  npx supabase secrets set RESEND_API_KEY=<a Resendben létrehozott kulcs> PARTNER_REVIEW_EMAIL=partner@nocturnal.hu
+  ```
+  A kulcsot a Resend felületén kell létrehozni (API Keys → Create API Key, „Sending access”, a `nocturnal.hu` domainre). Soha nem kerül a repóba vagy a chatbe. Kulcs nélkül a kérelem ugyanúgy elmentődik, csak az e-mail marad el.
+- **Elbírálás (D-008/23):** az appban, admin jogú fiókkal: Beállítások → „Partnerkérelmek”. Jóváhagyás megerősítéssel, elutasítás indoklással; a partner e-mailt kap a döntésről, és a válasza a `PARTNER_REVIEW_EMAIL` címre érkezik. Admin jogot a Supabase SQL Editorában lehet adni (a fióknak már legyen profilja):
+  ```sql
+  insert into public.admins (user_id) select id from public.profiles where username = '<felhasználónév>';
+  -- visszavonás:
+  delete from public.admins where user_id = (select id from public.profiles where username = '<felhasználónév>');
+  ```
+- **Védett nevek:** egy jóváhagyott partner nevét és felhasználónevét, illetve a nagyon hasonlókat (pl. „fogashaz.official”, vagy egy betű eltéréssel) más nem veheti fel. A szabályok: `supabase/functions/_shared/partners/protected-names.ts`.
 
 ## Build (EAS)
 

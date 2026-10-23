@@ -1,4 +1,4 @@
-import type { Profile } from '@shared/contracts/profile';
+import { isPartnerProfile, type Profile } from '@shared/contracts/profile';
 
 import type { AuthStatus } from './auth-store';
 
@@ -39,5 +39,6 @@ export function resolveAppState({
   if (!profile) {
     return 'needsProfile';
   }
-  return profile.tasteCompleted ? 'ready' : 'needsTaste';
+  // D-008/11: a partner has no taste step; until approval it uses the app without publishing.
+  return profile.tasteCompleted || isPartnerProfile(profile) ? 'ready' : 'needsTaste';
 }
