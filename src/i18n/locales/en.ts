@@ -31,8 +31,12 @@ export const en: Translation = {
     appleComingSoonMessage: 'Signing in with Apple is coming soon.',
     privacyLink: 'Privacy notice',
     registerTitle: 'Sign up',
-    accountExists:
-      'There is already an account with this email address. Sign in, or set a new password.',
+    accountExistsContinue:
+      'There is already an account with this email address. If you started your sign-up with it before, sign in with it and we save the profile and taste you just entered. If you do not remember the password, you can set a new one when signing in.',
+    codeComesLast:
+      'Your profile and music taste come first; at the end we email you a code, and entering it completes the sign-up. If you stop halfway, you can start again later with the same address.',
+    signInDetails: 'Sign-in details',
+    continueToCode: 'Next: confirm your email',
     verifyTitle: 'Confirm your email',
     verifyIntro: 'We sent the {{length}}-digit code to {{email}}',
     verifyIntroUnconfirmed:
@@ -60,6 +64,8 @@ export const en: Translation = {
   },
   onboarding: {
     createProfileTitle: 'Create your profile',
+    profileSection: 'Profile',
+    creatingProfile: 'Creating your profile…',
     displayName: 'Display name',
     username: 'Username',
     usernameRules: '3–20 characters: lowercase letters, digits, dots or underscores.',
@@ -152,9 +158,7 @@ export const en: Translation = {
       'There is already an account with this email address. If you started a partner sign-up with it before, sign in with it and we send the application you just filled in. If you do not remember the password, you can set a new one when signing in.',
     codeComesLast:
       'Fill in the details first. At the end we email you a code: entering it completes the sign-up, and only then is your application sent to us. If you stop halfway, you can start again later with the same address.',
-    accountSection: 'Sign-in details',
     detailsSection: 'Partner details',
-    continueToCode: 'Next: confirm your email',
     sending: 'Sending your application…',
     applicationTitle: 'Partner application',
     applicationIntro:

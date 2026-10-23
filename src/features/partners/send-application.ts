@@ -4,7 +4,7 @@ import type { MeResponse } from '@shared/contracts/profile';
 import { type PickedAvatar, uploadAvatar } from '@/features/profile/avatar-upload';
 import { api, ApiError } from '@/lib/api';
 
-import type { PartnerApplicationDraft } from './partner-signup-store';
+import type { PartnerApplicationDraft } from '@/features/auth/registration-store';
 
 export class LogoUploadError extends Error {}
 

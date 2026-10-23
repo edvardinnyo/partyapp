@@ -11,7 +11,7 @@ import { useLocationStore } from '@/features/location/location-store';
 import { LAUNCH_CITY_CENTER } from '@/features/location/position';
 import { usePreferencesStore } from '@/features/settings/preferences-store';
 import i18n from '@/i18n';
-import { usePartnerSignupStore } from '@/features/partners/partner-signup-store';
+import { useRegistrationStore } from '@/features/auth/registration-store';
 import { api, ApiError } from '@/lib/api';
 import { queryClient } from '@/lib/query-client';
 import { supabase } from '@/lib/supabase';
@@ -29,6 +29,7 @@ jest.mock('@/lib/supabase', () => {
         verifyOtp: jest.fn(),
         resend: jest.fn(),
         signOut: jest.fn(),
+        updateUser: jest.fn(async () => ({ data: {}, error: null })),
       },
       channel: jest.fn(() => channel),
       removeChannel: jest.fn(),
@@ -130,7 +131,7 @@ beforeEach(async () => {
   queryClient.clear();
   useAuthStore.setState({ status: 'loading', userId: null, isRecoveringPassword: false });
   useLocationStore.setState({ status: 'checking', position: null });
-  usePartnerSignupStore.setState({ pending: null });
+  useRegistrationStore.setState({ pending: null });
   // clearAllMocks keeps answers set by a test, so the default (location allowed) is set again.
   jest.mocked(Location.getForegroundPermissionsAsync).mockResolvedValue({
     status: Location.PermissionStatus.GRANTED,
@@ -205,9 +206,16 @@ describe('sign-in flow (F6)', () => {
     expect(await screen.findByText(/még nincs megerősítve/)).toBeOnTheScreen();
   });
 
-  it('signs up, then confirms the email with the 6-digit code (D-004)', async () => {
+  it('registers a person: profile and taste first, the email code last (D-009)', async () => {
     startSignedInAs(null);
     mockedApi.getMe.mockResolvedValue({ profile: null });
+    mockedApi.checkUsername.mockResolvedValue('available');
+    mockedApi.createProfile.mockResolvedValue({
+      profile: { ...readyProfile, tasteCompleted: false, topGenres: [] },
+    });
+    mockedApi.saveTaste.mockResolvedValue({
+      profile: { ...readyProfile, topGenres: ['rock', 'techno', 'jazz'] },
+    });
     auth.signUp.mockResolvedValue({ data: { user: { identities: [{}] } }, error: null } as never);
     auth.verifyOtp.mockImplementation(async () => {
       emitAuth('SIGNED_IN', sessionFor(USER_ID));
@@ -217,15 +225,88 @@ describe('sign-in flow (F6)', () => {
 
     await fireEvent.changeText(screen.getByLabelText('E-mail-cím'), EMAIL);
     await fireEvent.changeText(screen.getByLabelText('Jelszó'), 'secret-password');
-    await fireEvent.press(screen.getByText('Regisztráció'));
+    await fireEvent.changeText(screen.getByLabelText('Megjelenített név'), 'Fekete Olivér');
+    await fireEvent.changeText(screen.getByLabelText('Felhasználónév'), 'oli.fekete');
+    expect(await screen.findByText('Szabad felhasználónév.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByText('Elmúltam 18 éves'));
+    await fireEvent.press(screen.getByText('Elfogadom az adatvédelmi tájékoztatót'));
+    await fireEvent.press(screen.getByText('Tovább'));
 
+    await fireEvent.press(await screen.findByText('Műfajok kiválasztása'));
+    await fireEvent.press(await screen.findByLabelText('Rock'));
+    await fireEvent.press(screen.getByLabelText('Techno'));
+    await fireEvent.press(screen.getByLabelText('Jazz'));
+    // Nothing reaches the server before the code.
+    expect(auth.signUp).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByText('Tovább: e-mail-cím megerősítése'));
+
+    expect(auth.signUp).toHaveBeenCalledWith({
+      email: EMAIL,
+      password: 'secret-password',
+      options: { data: { account_type: 'person' } },
+    });
     expect(await screen.findByText(`Elküldtük a 6 jegyű kódot ide: ${EMAIL}`)).toBeOnTheScreen();
+    expect(mockedApi.createProfile).not.toHaveBeenCalled();
 
     await fireEvent.changeText(screen.getByLabelText('Kód'), '123456');
     await fireEvent.press(screen.getByText('Megerősítés'));
 
+    // The code completes the registration: the profile and the taste are saved on their own.
+    expect(await screen.findByText('Ajánlott események')).toBeOnTheScreen();
     expect(auth.verifyOtp).toHaveBeenCalledWith({ email: EMAIL, token: '123456', type: 'email' });
-    expect(await screen.findByLabelText('Megjelenített név')).toBeOnTheScreen();
+    expect(mockedApi.createProfile).toHaveBeenCalledWith({
+      displayName: 'Fekete Olivér',
+      username: 'oli.fekete',
+      avatarPath: null,
+      adultConfirmed: true,
+      privacyAccepted: true,
+    });
+    expect(mockedApi.saveTaste).toHaveBeenCalledWith(['rock', 'techno', 'jazz']);
+    // A second sign-up of an unconfirmed address keeps the latest password and account type.
+    expect(auth.updateUser).toHaveBeenCalledWith({ data: { account_type: 'person' } });
+    expect(auth.updateUser).toHaveBeenCalledWith({ password: 'secret-password' });
+  });
+
+  it('saves the profile after signing in to an earlier, unfinished registration (D-009)', async () => {
+    startSignedInAs(null);
+    mockedApi.getMe.mockResolvedValue({ profile: null });
+    mockedApi.checkUsername.mockResolvedValue('available');
+    mockedApi.createProfile.mockResolvedValue({
+      profile: { ...readyProfile, tasteCompleted: false, topGenres: [] },
+    });
+    mockedApi.saveTaste.mockResolvedValue({ profile: readyProfile });
+    // Supabase answers an existing, confirmed address without identities.
+    auth.signUp.mockResolvedValue({ data: { user: { identities: [] } }, error: null } as never);
+    auth.signInWithPassword.mockImplementation(async () => {
+      emitAuth('SIGNED_IN', sessionFor(USER_ID));
+      return { data: {}, error: null } as never;
+    });
+    await renderRouter(APP_DIR, { initialUrl: '/register' });
+
+    await fireEvent.changeText(screen.getByLabelText('E-mail-cím'), EMAIL);
+    await fireEvent.changeText(screen.getByLabelText('Jelszó'), 'secret-password');
+    await fireEvent.changeText(screen.getByLabelText('Megjelenített név'), 'Fekete Olivér');
+    await fireEvent.changeText(screen.getByLabelText('Felhasználónév'), 'oli.fekete');
+    await screen.findByText('Szabad felhasználónév.');
+    await fireEvent.press(screen.getByText('Elmúltam 18 éves'));
+    await fireEvent.press(screen.getByText('Elfogadom az adatvédelmi tájékoztatót'));
+    await fireEvent.press(screen.getByText('Tovább'));
+    await fireEvent.press(await screen.findByText('Műfajok kiválasztása'));
+    await fireEvent.press(await screen.findByLabelText('Rock'));
+    await fireEvent.press(screen.getByLabelText('Techno'));
+    await fireEvent.press(screen.getByLabelText('Jazz'));
+    await fireEvent.press(screen.getByText('Tovább: e-mail-cím megerősítése'));
+
+    expect(
+      await screen.findByText(/^Ezzel az e-mail-címmel már van fiók\. Ha korábban/),
+    ).toBeOnTheScreen();
+    await fireEvent.press(screen.getByText('Belépés'));
+    await fireEvent.changeText(await screen.findByLabelText('E-mail-cím'), EMAIL);
+    await fireEvent.changeText(screen.getByLabelText('Jelszó'), 'secret-password');
+    await fireEvent.press(screen.getByText('Belépés'));
+
+    expect(await screen.findByText('Ajánlott események')).toBeOnTheScreen();
+    expect(mockedApi.saveTaste).toHaveBeenCalledWith(['rock', 'techno', 'jazz']);
   });
 });
 

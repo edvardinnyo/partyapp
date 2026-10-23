@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 
 import { useAuthStore } from './auth-store';
+import { pendingRegistrationFor, useRegistrationStore } from './registration-store';
 
 export async function signIn(email: string, password: string): Promise<void> {
   const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
@@ -45,6 +46,34 @@ export async function confirmSignUp(email: string, code: string): Promise<void> 
   });
   if (error) {
     throw error;
+  }
+  await applyPendingRegistration(email);
+}
+
+/**
+ * D-008/22, D-009: someone who stopped before the code may register again with the same,
+ * still unconfirmed address. Supabase keeps such an account's first password and account type,
+ * so once the code proves the address, the choices of this registration are applied.
+ */
+async function applyPendingRegistration(email: string) {
+  const store = useRegistrationStore.getState();
+  const pending = pendingRegistrationFor(store.pending, email.trim());
+  if (!pending) {
+    return;
+  }
+  try {
+    await supabase.auth.updateUser({ data: { account_type: pending.accountType } });
+    const { error } = await supabase.auth.updateUser({ password: pending.password });
+    // The same password as before is the usual case: nothing to change.
+    if (error && error.code !== 'same_password') {
+      throw error;
+    }
+  } catch {
+    if (__DEV__) {
+      console.warn('[auth] the registration password or account type could not be applied');
+    }
+  } finally {
+    store.forgetPassword();
   }
 }
 

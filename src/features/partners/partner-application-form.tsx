@@ -25,6 +25,11 @@ import { Screen } from '@/components/screen';
 import { TextField } from '@/components/text-field';
 import { signOut, signUp } from '@/features/auth/actions';
 import { authErrorMessageKey } from '@/features/auth/auth-errors';
+import {
+  type PartnerApplicationDraft,
+  type PendingRegistration,
+  useRegistrationStore,
+} from '@/features/auth/registration-store';
 import { isValidEmail, isValidPassword, PASSWORD_MIN_LENGTH } from '@/features/auth/validation';
 import { useAvatarPicker } from '@/features/profile/use-avatar-picker';
 import { useUsernameField } from '@/features/profile/use-username-field';
@@ -32,11 +37,6 @@ import { api } from '@/lib/api';
 import { queryClient, queryKeys } from '@/lib/query-client';
 import { useAppTheme } from '@/theme';
 
-import {
-  type PartnerApplicationDraft,
-  type PendingPartnerSignup,
-  usePartnerSignupStore,
-} from './partner-signup-store';
 import { applicationErrorMessage, sendPartnerApplication } from './send-application';
 
 type PartnerApplicationFormProps =
@@ -46,7 +46,11 @@ type PartnerApplicationFormProps =
    */
   | { mode: 'signup' }
   /** Signed in without an application yet; `initial` restores what was typed before the code. */
-  | { mode: 'create'; initial?: PendingPartnerSignup | null; initialError?: string | null }
+  | {
+      mode: 'create';
+      initial?: Extract<PendingRegistration, { accountType: 'partner' }> | null;
+      initialError?: string | null;
+    }
   /** D-008/4: correcting a rejected application; the username and logo stay. */
   | { mode: 'resubmit'; profile: Profile };
 
@@ -59,7 +63,7 @@ export function PartnerApplicationForm(props: PartnerApplicationFormProps) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
   const isNew = props.mode !== 'resubmit';
-  const draft = props.mode === 'create' ? props.initial?.draft : undefined;
+  const draft = props.mode === 'create' ? props.initial?.partner : undefined;
   const previous = props.mode === 'resubmit' ? props.profile.partner : null;
 
   const [email, setEmail] = useState('');
@@ -130,9 +134,11 @@ export function PartnerApplicationForm(props: PartnerApplicationFormProps) {
     const result = await signUp(email, password, 'partner');
     // Kept either way: after the code, or after signing in to an earlier account with this
     // address, the application is sent without typing it again.
-    usePartnerSignupStore.getState().setPending({
+    useRegistrationStore.getState().setPending({
+      accountType: 'partner',
       email: email.trim().toLowerCase(),
-      draft: currentDraft(),
+      password,
+      partner: currentDraft(),
       logo: logo.picked,
     });
     if (result === 'accountExists') {
@@ -152,7 +158,7 @@ export function PartnerApplicationForm(props: PartnerApplicationFormProps) {
         await handleSignup();
       } else if (props.mode === 'create') {
         const me = await sendPartnerApplication(currentDraft(), logo.picked);
-        usePartnerSignupStore.getState().clear();
+        useRegistrationStore.getState().clear();
         // The protected routes continue to Home, with the "under review" notice.
         queryClient.setQueryData(queryKeys.me, me);
       } else {
@@ -186,7 +192,7 @@ export function PartnerApplicationForm(props: PartnerApplicationFormProps) {
         <>
           <AppText variant="muted">{t('partners.registerIntro')}</AppText>
           <AppText variant="muted">{t('partners.codeComesLast')}</AppText>
-          <AppText variant="subtitle">{t('partners.accountSection')}</AppText>
+          <AppText variant="subtitle">{t('auth.signInDetails')}</AppText>
           <TextField
             label={t('partners.businessEmail')}
             value={email}
@@ -347,7 +353,7 @@ export function PartnerApplicationForm(props: PartnerApplicationFormProps) {
       <AppButton
         label={
           props.mode === 'signup'
-            ? t('partners.continueToCode')
+            ? t('auth.continueToCode')
             : props.mode === 'create'
               ? t('partners.submit')
               : t('partners.resubmit')

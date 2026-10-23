@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { useAuthStore } from '@/features/auth/auth-store';
+import { pendingRegistrationFor, useRegistrationStore } from '@/features/auth/registration-store';
 import { useAppState } from '@/features/auth/use-app-state';
 
 // D-004: profile first, then the taste (streaming sync or manual choice), then Home.
@@ -9,7 +10,11 @@ import { useAppState } from '@/features/auth/use-app-state';
 export default function OnboardingLayout() {
   const { t } = useTranslation();
   const appState = useAppState();
-  const accountIntent = useAuthStore((state) => state.accountIntent);
+  const email = useAuthStore((state) => state.email);
+  const storedIntent = useAuthStore((state) => state.accountIntent);
+  const pending = useRegistrationStore((state) => state.pending);
+  // The registration just finished on this phone knows best which onboarding comes next.
+  const accountIntent = pendingRegistrationFor(pending, email)?.accountType ?? storedIntent;
 
   return (
     <Stack>

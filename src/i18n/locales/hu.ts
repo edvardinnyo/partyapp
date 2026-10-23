@@ -30,7 +30,12 @@ export const hu = {
     appleComingSoonMessage: 'Az Apple-fiókos belépés hamarosan érkezik.',
     privacyLink: 'Adatvédelmi tájékoztató',
     registerTitle: 'Regisztráció',
-    accountExists: 'Ezzel az e-mail-címmel már van fiók. Lépj be, vagy állíts be új jelszót.',
+    accountExistsContinue:
+      'Ezzel az e-mail-címmel már van fiók. Ha korábban ezzel kezdted el a regisztrációt, lépj be vele, és a most megadott profilodat és ízlésedet elmentjük. Ha nem emlékszel a jelszóra, a belépésnél állíthatsz be újat.',
+    codeComesLast:
+      'Előbb a profilod és a zenei ízlésed jön, a végén kódot küldünk az e-mail-címedre: a regisztráció a kód beírásával fejeződik be. Ha közben abbahagyod, később ugyanezzel a címmel újrakezdheted.',
+    signInDetails: 'Belépési adatok',
+    continueToCode: 'Tovább: e-mail-cím megerősítése',
     verifyTitle: 'E-mail megerősítése',
     verifyIntro: 'Elküldtük a {{length}} jegyű kódot ide: {{email}}',
     verifyIntroUnconfirmed:
@@ -58,6 +63,8 @@ export const hu = {
   },
   onboarding: {
     createProfileTitle: 'Profil létrehozása',
+    profileSection: 'Profil',
+    creatingProfile: 'A profilod létrehozása…',
     displayName: 'Megjelenített név',
     username: 'Felhasználónév',
     usernameRules: '3–20 karakter: kisbetű, szám, pont vagy aláhúzás.',
@@ -149,9 +156,7 @@ export const hu = {
       'Ezzel az e-mail-címmel már van fiók. Ha korábban ezzel kezdted el a partnerregisztrációt, lépj be vele, és a most kitöltött kérelmedet elküldjük. Ha nem emlékszel a jelszóra, a belépésnél állíthatsz be újat.',
     codeComesLast:
       'Előbb töltsd ki az adatokat. A végén kódot küldünk az e-mail-címedre: a regisztráció a kód beírásával fejeződik be, és a kérelmed csak ekkor kerül hozzánk. Ha közben abbahagyod, később ugyanezzel a címmel újrakezdheted.',
-    accountSection: 'Belépési adatok',
     detailsSection: 'A partner adatai',
-    continueToCode: 'Tovább: e-mail-cím megerősítése',
     sending: 'A kérelmed beküldése…',
     applicationTitle: 'Partnerkérelem',
     applicationIntro:
