@@ -1,8 +1,6 @@
-// Shared between the app (Metro/Jest), the API Edge Function (Deno) and the import script (Node).
+// Shared between the app (Metro/Jest) and the API Edge Function (Deno).
 // Keep it free of runtime-specific imports: only `zod` and other shared files.
 import { z } from 'zod';
-
-import { genreSchema } from './genres.ts';
 
 /** F1: clubs, bars, concerts and festivals. */
 export const EVENT_KINDS = ['club', 'bar', 'concert', 'festival'] as const;
@@ -51,37 +49,3 @@ export const eventDetailSchema = eventSummarySchema
   .extend({ performers: z.array(z.string()) });
 export type EventDetail = z.infer<typeof eventDetailSchema>;
 export const eventDetailResponseSchema = z.object({ event: eventDetailSchema });
-
-/**
- * D-007/1: the one shape every event source is converted into before it reaches the database —
- * the CSV import now, partner (ticket seller) feeds later. A new source needs only a converter
- * into this shape; the database side (`public.import_events`) stays the same.
- */
-export const importedEventSchema = z
-  .object({
-    /** Stable within the source, so importing again updates the event instead of duplicating it. */
-    externalId: z.string().trim().min(1).max(200),
-    title: z.string().trim().min(1).max(200),
-    kind: eventKindSchema,
-    startsAt: z.iso.datetime({ offset: true }),
-    endsAt: z.iso.datetime({ offset: true }),
-    venue: z.object({
-      externalId: z.string().trim().min(1).max(200),
-      name: z.string().trim().min(1).max(200),
-      address: z.string().trim().min(1).max(300),
-      lat: z.number().min(-90).max(90),
-      lng: z.number().min(-180).max(180),
-    }),
-    genres: z
-      .array(genreSchema)
-      .min(1)
-      .refine((genres) => new Set(genres).size === genres.length),
-    performers: z.array(z.string().trim().min(1).max(200)),
-    /** D-007/4: the partner's ticket page, once tickets are sold through partners. */
-    ticketUrl: z.httpUrl().nullable(),
-  })
-  .refine((event) => Date.parse(event.endsAt) > Date.parse(event.startsAt), {
-    message: 'endsAt must be later than startsAt',
-    path: ['endsAt'],
-  });
-export type ImportedEvent = z.infer<typeof importedEventSchema>;

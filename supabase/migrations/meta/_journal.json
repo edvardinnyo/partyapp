@@ -50,6 +50,20 @@
       "when": 1792531572191,
       "tag": "20261020212612_events_import",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792776150405,
+      "tag": "20261023172230_partners",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792776159091,
+      "tag": "20261023172239_remove_csv_import",
+      "breakpoints": true
     }
   ]
 }
