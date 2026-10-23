@@ -69,9 +69,10 @@ async function call<T>(
 export const api = {
   getMe: (): Promise<MeResponse> => call('me', 'GET', meResponseSchema),
 
+  /** Works signed out too (D-008/22): partners choose their username before the email code. */
   checkUsername: async (username: string): Promise<UsernameAvailability> => {
     const { available, reason } = await call(
-      `usernames/${encodeURIComponent(username)}`,
+      `public/usernames/${encodeURIComponent(username)}`,
       'GET',
       usernameAvailabilitySchema,
     );

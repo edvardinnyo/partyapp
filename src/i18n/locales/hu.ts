@@ -145,9 +145,14 @@ export const hu = {
     registerIntro:
       'Klubok, bárok, koncerthelyszínek és szervezők partnerként regisztrálhatnak, és tehetik közzé az eseményeiket. Céges e-mail-címet használj (pl. info@helyed.hu): a jóváhagyáskor ezt is ellenőrizzük.',
     businessEmail: 'Céges e-mail-cím',
-    registerButton: 'Regisztráció partnerként',
     accountExists:
-      'Ezzel az e-mail-címmel már van fiók. Ha korábban ezzel kezdted el a partnerregisztrációt, lépj be vele: ott folytathatod, ahol abbahagytad. Ha nem emlékszel a jelszóra, a belépésnél állíthatsz be újat.',
+      'Ezzel az e-mail-címmel már van fiók. Ha korábban ezzel kezdted el a partnerregisztrációt, lépj be vele, és a most kitöltött kérelmedet elküldjük. Ha nem emlékszel a jelszóra, a belépésnél állíthatsz be újat.',
+    codeComesLast:
+      'Előbb töltsd ki az adatokat. A végén kódot küldünk az e-mail-címedre: a regisztráció a kód beírásával fejeződik be, és a kérelmed csak ekkor kerül hozzánk. Ha közben abbahagyod, később ugyanezzel a címmel újrakezdheted.',
+    accountSection: 'Belépési adatok',
+    detailsSection: 'A partner adatai',
+    continueToCode: 'Tovább: e-mail-cím megerősítése',
+    sending: 'A kérelmed beküldése…',
     applicationTitle: 'Partnerkérelem',
     applicationIntro:
       'A kérelmedet a Nocturnal csapata ellenőrzi, a döntésről e-mailt küldünk. A jóváhagyásig eseményt még nem tehetsz közzé.',

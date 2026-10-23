@@ -23,19 +23,30 @@ import { Checkbox } from '@/components/checkbox';
 import { FormMessage } from '@/components/form-message';
 import { Screen } from '@/components/screen';
 import { TextField } from '@/components/text-field';
-import { signOut } from '@/features/auth/actions';
-import { uploadAvatar } from '@/features/profile/avatar-upload';
+import { signOut, signUp } from '@/features/auth/actions';
+import { authErrorMessageKey } from '@/features/auth/auth-errors';
+import { isValidEmail, isValidPassword, PASSWORD_MIN_LENGTH } from '@/features/auth/validation';
 import { useAvatarPicker } from '@/features/profile/use-avatar-picker';
 import { useUsernameField } from '@/features/profile/use-username-field';
-import { api, ApiError } from '@/lib/api';
+import { api } from '@/lib/api';
 import { queryClient, queryKeys } from '@/lib/query-client';
 import { useAppTheme } from '@/theme';
 
-class LogoUploadError extends Error {}
+import {
+  type PartnerApplicationDraft,
+  type PendingPartnerSignup,
+  usePartnerSignupStore,
+} from './partner-signup-store';
+import { applicationErrorMessage, sendPartnerApplication } from './send-application';
 
 type PartnerApplicationFormProps =
-  /** The first application, right after the email is confirmed. */
-  | { mode: 'create' }
+  /**
+   * D-008/22: signed out, the whole application before the email code; the code comes last,
+   * and only then is the application sent.
+   */
+  | { mode: 'signup' }
+  /** Signed in without an application yet; `initial` restores what was typed before the code. */
+  | { mode: 'create'; initial?: PendingPartnerSignup | null; initialError?: string | null }
   /** D-008/4: correcting a rejected application; the username and logo stay. */
   | { mode: 'resubmit'; profile: Profile };
 
@@ -47,26 +58,38 @@ function required(value: string) {
 export function PartnerApplicationForm(props: PartnerApplicationFormProps) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
+  const isNew = props.mode !== 'resubmit';
+  const draft = props.mode === 'create' ? props.initial?.draft : undefined;
   const previous = props.mode === 'resubmit' ? props.profile.partner : null;
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState(
-    props.mode === 'resubmit' ? props.profile.displayName : '',
+    props.mode === 'resubmit' ? props.profile.displayName : (draft?.displayName ?? ''),
   );
-  const [companyName, setCompanyName] = useState(previous?.companyName ?? '');
-  const [taxNumber, setTaxNumber] = useState(previous?.taxNumber ?? '');
+  const [companyName, setCompanyName] = useState(previous?.companyName ?? draft?.companyName ?? '');
+  const [taxNumber, setTaxNumber] = useState(previous?.taxNumber ?? draft?.taxNumber ?? '');
   const [taxNumberLeft, setTaxNumberLeft] = useState(false);
-  const [contactName, setContactName] = useState(previous?.contactName ?? '');
-  const [contactPhone, setContactPhone] = useState(previous?.contactPhone ?? '');
-  const [address, setAddress] = useState(previous?.address ?? '');
-  const [website, setWebsite] = useState(previous?.website ?? '');
-  const [acceptsTerms, setAcceptsTerms] = useState(false);
-  const [acceptsPrivacy, setAcceptsPrivacy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [contactName, setContactName] = useState(previous?.contactName ?? draft?.contactName ?? '');
+  const [contactPhone, setContactPhone] = useState(
+    previous?.contactPhone ?? draft?.contactPhone ?? '',
+  );
+  const [address, setAddress] = useState(previous?.address ?? draft?.address ?? '');
+  const [website, setWebsite] = useState(previous?.website ?? draft?.website ?? '');
+  const [acceptsTerms, setAcceptsTerms] = useState(draft !== undefined);
+  const [acceptsPrivacy, setAcceptsPrivacy] = useState(draft !== undefined);
+  const [error, setError] = useState<string | null>(
+    props.mode === 'create' ? (props.initialError ?? null) : null,
+  );
+  const [accountExists, setAccountExists] = useState(false);
   const [saving, setSaving] = useState(false);
-  const logo = useAvatarPicker(setError);
-  const usernameField = useUsernameField();
+  const logo = useAvatarPicker(
+    setError,
+    props.mode === 'create' ? (props.initial?.logo ?? null) : null,
+  );
+  const usernameField = useUsernameField(draft?.username ?? '');
 
   const taxProblem = taxNumberProblem(normalizeTaxNumber(taxNumber));
-  const taxNumberValid = taxProblem === null;
   // Not while typing: once all 11 digits are there, or after leaving the field.
   const showTaxProblem =
     required(taxNumber) &&
@@ -78,20 +101,22 @@ export function PartnerApplicationForm(props: PartnerApplicationFormProps) {
   const detailsValid =
     displayNameSchema.safeParse(displayName).success &&
     required(companyName) &&
-    taxNumberValid &&
+    taxProblem === null &&
     required(contactName) &&
     phoneValid &&
     required(address) &&
     websiteValid;
+  const accountValid =
+    props.mode !== 'signup' || (isValidEmail(email) && isValidPassword(password));
   const canSubmit =
     detailsValid &&
-    (props.mode === 'resubmit' || (usernameField.isAvailable && acceptsTerms && acceptsPrivacy));
+    accountValid &&
+    (!isNew || (usernameField.isAvailable && acceptsTerms && acceptsPrivacy));
 
-  async function handleSubmit() {
-    setError(null);
-    setSaving(true);
-    const details = {
+  function currentDraft(): PartnerApplicationDraft {
+    return {
       displayName: displayName.trim(),
+      username: usernameField.username,
       companyName: companyName.trim(),
       taxNumber,
       contactName: contactName.trim(),
@@ -99,39 +124,48 @@ export function PartnerApplicationForm(props: PartnerApplicationFormProps) {
       address: address.trim(),
       website: required(website) ? website.trim() : null,
     };
+  }
+
+  async function handleSignup() {
+    const result = await signUp(email, password, 'partner');
+    // Kept either way: after the code, or after signing in to an earlier account with this
+    // address, the application is sent without typing it again.
+    usePartnerSignupStore.getState().setPending({
+      email: email.trim().toLowerCase(),
+      draft: currentDraft(),
+      logo: logo.picked,
+    });
+    if (result === 'accountExists') {
+      setError(t('partners.accountExists'));
+      setAccountExists(true);
+      return;
+    }
+    router.replace({ pathname: '/verify-email', params: { email: email.trim(), sent: '1' } });
+  }
+
+  async function handleSubmit() {
+    setError(null);
+    setAccountExists(false);
+    setSaving(true);
     try {
-      if (props.mode === 'create') {
-        const avatarPath = logo.picked
-          ? await uploadAvatar(logo.picked).catch(() => {
-              throw new LogoUploadError();
-            })
-          : null;
-        const me = await api.submitPartnerApplication({
-          ...details,
-          username: usernameField.username,
-          avatarPath,
-          termsAccepted: true,
-          privacyAccepted: true,
-        });
+      if (props.mode === 'signup') {
+        await handleSignup();
+      } else if (props.mode === 'create') {
+        const me = await sendPartnerApplication(currentDraft(), logo.picked);
+        usePartnerSignupStore.getState().clear();
         // The protected routes continue to Home, with the "under review" notice.
         queryClient.setQueryData(queryKeys.me, me);
       } else {
+        const { username: _username, ...details } = currentDraft();
         queryClient.setQueryData(queryKeys.me, await api.resubmitPartnerApplication(details));
         router.back();
       }
     } catch (submitError) {
-      const code = submitError instanceof ApiError ? submitError.code : null;
-      if (code === 'username_taken') {
-        setError(t('onboarding.usernameTaken'));
-        usernameField.recheck();
-      } else if (code === 'name_protected') {
-        setError(t('partners.nameProtected'));
-      } else if (submitError instanceof LogoUploadError || code === 'invalid_avatar') {
-        setError(t('onboarding.avatarUploadFailed'));
-      } else if (code === 'network') {
-        setError(t('common.networkError'));
+      if (props.mode === 'signup') {
+        setError(t(authErrorMessageKey(submitError)));
       } else {
-        setError(t('common.genericError'));
+        setError(applicationErrorMessage(submitError, t));
+        usernameField.recheck();
       }
     } finally {
       setSaving(false);
@@ -147,9 +181,37 @@ export function PartnerApplicationForm(props: PartnerApplicationFormProps) {
           <AppText>{t('partners.rejectedReason', { reason: previous.rejectionReason })}</AppText>
         </View>
       ) : null}
-      <AppText variant="muted">{t('partners.applicationIntro')}</AppText>
 
-      {props.mode === 'create' ? (
+      {props.mode === 'signup' ? (
+        <>
+          <AppText variant="muted">{t('partners.registerIntro')}</AppText>
+          <AppText variant="muted">{t('partners.codeComesLast')}</AppText>
+          <AppText variant="subtitle">{t('partners.accountSection')}</AppText>
+          <TextField
+            label={t('partners.businessEmail')}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+            textContentType="emailAddress"
+          />
+          <TextField
+            label={t('auth.password')}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoComplete="new-password"
+            textContentType="newPassword"
+            hint={t('auth.passwordHint', { min: PASSWORD_MIN_LENGTH })}
+          />
+          <AppText variant="subtitle">{t('partners.detailsSection')}</AppText>
+        </>
+      ) : (
+        <AppText variant="muted">{t('partners.applicationIntro')}</AppText>
+      )}
+
+      {isNew ? (
         <View style={styles.logo}>
           <Pressable
             accessibilityRole="button"
@@ -172,7 +234,7 @@ export function PartnerApplicationForm(props: PartnerApplicationFormProps) {
         maxLength={DISPLAY_NAME_MAX_LENGTH}
         hint={t('partners.publicNameHint')}
       />
-      {props.mode === 'create' ? (
+      {isNew ? (
         <TextField
           label={t('onboarding.username')}
           value={usernameField.input}
@@ -247,7 +309,7 @@ export function PartnerApplicationForm(props: PartnerApplicationFormProps) {
         error={websiteValid ? null : t('partners.websiteInvalid')}
       />
 
-      {props.mode === 'create' ? (
+      {isNew ? (
         <>
           <Checkbox
             label={t('partners.termsAccept')}
@@ -275,8 +337,21 @@ export function PartnerApplicationForm(props: PartnerApplicationFormProps) {
       ) : null}
 
       <FormMessage message={error} />
+      {accountExists ? (
+        <AppButton
+          label={t('auth.signIn')}
+          variant="secondary"
+          onPress={() => router.dismissTo('/sign-in')}
+        />
+      ) : null}
       <AppButton
-        label={props.mode === 'create' ? t('partners.submit') : t('partners.resubmit')}
+        label={
+          props.mode === 'signup'
+            ? t('partners.continueToCode')
+            : props.mode === 'create'
+              ? t('partners.submit')
+              : t('partners.resubmit')
+        }
         onPress={handleSubmit}
         loading={saving}
         disabled={saving || !canSubmit}

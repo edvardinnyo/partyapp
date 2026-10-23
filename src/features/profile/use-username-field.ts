@@ -15,9 +15,9 @@ function isValidUsername(username: string) {
  * The username field of a new profile: D-004 rules, a live availability check, and D-008/5:
  * names too close to a verified partner's are refused with their own message.
  */
-export function useUsernameField() {
+export function useUsernameField(initial = '') {
   const { t } = useTranslation();
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(initial);
   const username = normalizeUsername(input);
   const debouncedUsername = useDebouncedValue(username, 400);
   const availability = useQuery({

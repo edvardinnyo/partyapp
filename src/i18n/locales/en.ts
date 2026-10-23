@@ -148,9 +148,14 @@ export const en: Translation = {
     registerIntro:
       'Clubs, bars, concert venues and organisers can sign up as partners and publish their events. Use your business email address (e.g. info@yourvenue.com): we check it when approving.',
     businessEmail: 'Business email',
-    registerButton: 'Sign up as a partner',
     accountExists:
-      'There is already an account with this email address. If you started a partner sign-up with it before, sign in with it to continue where you left off. If you do not remember the password, you can set a new one when signing in.',
+      'There is already an account with this email address. If you started a partner sign-up with it before, sign in with it and we send the application you just filled in. If you do not remember the password, you can set a new one when signing in.',
+    codeComesLast:
+      'Fill in the details first. At the end we email you a code: entering it completes the sign-up, and only then is your application sent to us. If you stop halfway, you can start again later with the same address.',
+    accountSection: 'Sign-in details',
+    detailsSection: 'Partner details',
+    continueToCode: 'Next: confirm your email',
+    sending: 'Sending your application…',
     applicationTitle: 'Partner application',
     applicationIntro:
       'The Nocturnal team reviews your application and emails you the decision. Until it is approved you cannot publish events.',

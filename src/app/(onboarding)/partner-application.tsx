@@ -1,7 +1,56 @@
-import { PartnerApplicationForm } from '@/features/partners/partner-application-form';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
-// D-008: after confirming the email, a partner fills in its application instead of the
-// person's profile and taste steps.
+import { AppText } from '@/components/app-text';
+import { Screen } from '@/components/screen';
+import { useAuthStore } from '@/features/auth/auth-store';
+import { PartnerApplicationForm } from '@/features/partners/partner-application-form';
+import { usePartnerSignupStore } from '@/features/partners/partner-signup-store';
+import {
+  applicationErrorMessage,
+  sendPartnerApplication,
+} from '@/features/partners/send-application';
+import { queryClient, queryKeys } from '@/lib/query-client';
+import { useAppTheme } from '@/theme';
+
+// D-008/22: right after the email code, the application typed before it is sent automatically.
+// Without one (signed in later, or on another phone) the partner fills in the form here; if
+// sending fails, the form comes back with everything typed and the reason.
 export default function PartnerApplicationScreen() {
-  return <PartnerApplicationForm mode="create" />;
+  const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const email = useAuthStore((state) => state.email);
+  const pending = usePartnerSignupStore((state) => state.pending);
+  const ownPending = pending && email === pending.email ? pending : null;
+  const [sending, setSending] = useState(ownPending !== null);
+  const [failure, setFailure] = useState<string | null>(null);
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (!ownPending || started.current) {
+      return;
+    }
+    started.current = true;
+    sendPartnerApplication(ownPending.draft, ownPending.logo)
+      .then((me) => {
+        usePartnerSignupStore.getState().clear();
+        // The protected routes continue to Home, with the "under review" notice.
+        queryClient.setQueryData(queryKeys.me, me);
+      })
+      .catch((error: unknown) => {
+        setFailure(applicationErrorMessage(error, t));
+        setSending(false);
+      });
+  }, [ownPending, t]);
+
+  if (sending) {
+    return (
+      <Screen edges={['bottom']}>
+        <ActivityIndicator color={colors.accent} />
+        <AppText variant="muted">{t('partners.sending')}</AppText>
+      </Screen>
+    );
+  }
+  return <PartnerApplicationForm mode="create" initial={ownPending} initialError={failure} />;
 }
