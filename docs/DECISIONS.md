@@ -129,13 +129,22 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
   23. **Elbírálás az appban**, a D-008/4 egy kattintásos e-mailes jóváhagyása helyett (a technikai korlátot lásd I-013-ban). A csapat fiókjai admin jogot kapnak, és a Beállításokban a „Partnerkérelmek” menüben látják a várakozó kérelmeket az ellenőrzendő adatokkal; jóváhagyás megerősítéssel, elutasítás csak indoklással. A döntésről a partner e-mailt kap (magyarul és angolul), az indoklást az appban is látja. Admin jogot csak SQL-lel lehet adni, az appban nincs rá felület (I-014).
   24. **A pin kézi igazítása:** igen, a 4b-ben. Az app a partner által megadott címből teszi le a pint, a partner szükség esetén odébb húzhatja.
   25. **Jegyvásárlás külön fázisban** (D-008/15): a 7. fázis után, a kiadás előtt. Addig az eseményen a jegyár látszik, a „Jegyvásárlás” gomb pedig „Hamarosan elérhető” üzenetet ad.
-  26. **„Hirdetés”** = a Home hirdetési sávjai (D-007/3). Az eseményeket a partnerek hozzák létre, és ezek a Home eseményei között jelennek meg. A hirdetési sávok tartalma és működése még nyitott (4b előtt).
+  26. **„Hirdetés”** = a Home hirdetési sávjai (D-007/3). Az eseményeket a partnerek hozzák létre, és ezek a Home eseményei között jelennek meg.
+- **Kiegészítés (2026-10-23, a 4a tesztje után):** a 4a tesztje sikeres, mehet a mainbe. A csapat két admin fiókja beállítva.
+  27. **A hirdetési sávokra egy későbbi fázisban térünk vissza**; addig a „Hirdetés” helykitöltő marad.
+  28. **Az eseményeket nem bíráljuk el:** a hitelesített partnerek feltöltését nem szabályozzuk, az esemény azonnal megjelenik (D-008/7). A csapat utólag bármikor módosíthatja vagy törölheti (E-004). Pontosítás alatt: megmarad-e a felhasználói bejelentés (D-008/7), és a csapat hol szedi le, illetve módosítja az eseményt.
 
 ### D-009 — Magánszemély-regisztráció: az e-mail-kód a végén
 
 - **Dátum:** 2026-10-23
 - **Érintett:** F6, D-004, D-008/22
 - **Döntés:** a magánszemélyek regisztrációja is a partnerekével azonos sorrendet követi. Előbb a belépési adatok és a profil (név, felhasználónév, profilkép, „Elmúltam 18 éves”, adatvédelmi tájékoztató), utána a szinkron-képernyő és a műfajválasztás, a 6 jegyű kód a végén; a kód beírása után a profil és az ízlés magától mentődik. A kódig csak a megerősítetlen fiók van a szerveren, így aki közben abbahagyja, később ugyanazzal a címmel újrakezdheti. A Google-belépés menete nem változott.
+
+### D-010 — A profil nélkül maradt fiókok törlése
+
+- **Dátum:** 2026-10-23
+- **Érintett:** F6, D-004/9, D-008/22, D-009, Q23 d
+- **Döntés (jóváhagyott javaslat):** azokat a fiókokat, amelyekhez a létrehozásuk után **30 nappal sincs profil**, egy éjszakai időzített feladat törli, bármilyen belépési móddal jöttek létre. Ilyen fiók akkor marad, ha valaki megerősíti a címét (vagy Google-lel belép), de a profil mentése előtt kilép; a címe addig foglalt. A meg nem erősített regisztrációk 7 napos törlése (D-004/9) változatlan. Az adatvédelmi tájékoztatóban jelezni kell.
 
 ---
 
@@ -158,6 +167,12 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
 - **Dátum:** 2026-10-23
 - **Javaslat:** a CSV-import maradjon admin-eszköznek, a mintaesemények pedig a teszteléshez, amíg nincs valódi partner.
 - **Döntés:** elutasítva. Mindkettő megszűnik (D-008/13).
+
+### E-004 — A bejelentett események elbírálása az appban
+
+- **Dátum:** 2026-10-23
+- **Javaslat:** a felhasználók bejelentései egy csak adminnak látszó „Bejelentett események” listába kerülnek, „Leszedés” gombbal (a D-008/17 e-mailes, egy kattintásos leszedése helyett, amely ugyanabba a technikai korlátba ütközik, mint a jóváhagyás, I-013).
+- **Döntés:** elutasítva. Az eseményeket nem bíráljuk el; a csapat utólag módosíthatja vagy törölheti őket (D-008/28).
 
 ---
 

@@ -16,8 +16,7 @@ Az előző beszélgetés teljes átirata (csak a fejlesztő gépén van meg; sz�
 
 ## 1. Hol tartunk
 
-- **`main`** (bf78694): 0–4. fázis (projektváz, belépés, kézi ízlés, események, Home-rács, térkép) és a profilszerkesztés.
-- **`feature/f5-partner-accounts`** (feltöltve a GitHubra, **még nincs a mainben**): a 4. fázis átdolgozásának első fele, a **4a**:
+- **`main`**: 0–4. fázis (projektváz, belépés, kézi ízlés, események, Home-rács, térkép), a profilszerkesztés, és **a 4a** (a felhasználó tesztelte és jóváhagyta, 2026-10-23-án összefésülve a `feature/f5-partner-accounts` ágból). A 4a tartalma:
   - partnerregisztráció és partnerkérelem, „Hitelesített partner” pipa, védett nevek, partner-Home és partnerprofil (D-008/1–22);
   - a CSV-import és a mintaesemények eltávolítva (E-003);
   - az e-mail-kód a regisztráció **végén**: partnereknél (D-008/22) és magánszemélyeknél (D-009);
@@ -25,22 +24,26 @@ Az előző beszélgetés teljes átirata (csak a fejlesztő gépén van meg; sz�
 - **Élesítve** a Supabase-projekten (`ryqbsalvqwvamhrcliht`, Frankfurt): minden migráció a `20261023184241_admins.sql`-ig, és az `api` Edge Function legfrissebb változata.
 - **Tesztek:** 154 db, mind zöld; a typecheck és a lint hibátlan.
 
-## 2. Mire várunk a felhasználótól (ezt kérdezd meg először)
+## 2. A felhasználó válaszai és ami még nyitott
 
-1. **A 4a tesztjének eredménye** iPhone-on (Expo Go). Ha rendben van: PR (https://github.com/edvardinnyo/partyapp/compare/main...feature/f5-partner-accounts?expand=1), majd a jóváhagyása után helyi `--no-ff` merge a mainbe és push.
-2. **Mely felhasználónevek kapjanak admin jogot.** SQL-lel kell kiadni (a parancs a README-ben van); ezt a felhasználó jóváhagyásával te is lefuttathatod: `npx supabase db query --linked "<sql>"`.
-3. **A Home hirdetési sávjai (D-008/26)** — nyitott kérdések a 4b előtt:
-   - Ki hirdethet: csak jóváhagyott partner, vagy külső cég is?
-   - Mi van egy hirdetésben (kép, szöveg), és koppintásra hová visz (eseményre, partnerprofilra vagy külső oldalra)?
-   - Mindenki látja a környéken, vagy ízlés szerint célozzuk?
-   - Fizetős lesz-e (egyelőre kézzel, számlával)? A csapat jóváhagyja-e megjelenés előtt?
-4. **Két javaslat, válasz nélkül:**
-   - A bejelentett események elbírálása is az appban történjen („Bejelentett események” lista, „Leszedés” gomb), mert a D-008/17 szerinti egy kattintásos leszedés az e-mailből ugyanabba a korlátba ütközik, mint a jóváhagyás (lásd 5. pont).
-   - Időzített feladat törölje azokat a megerősített fiókokat, amelyekhez 30 nap után sincs profil (adatvédelmi tájékoztatóban jelezni kell).
+Megválaszolva (2026-10-23, a 4a tesztje után):
+
+- A 4a tesztje sikeres; összefésülve a mainbe.
+- A csapat **két admin fiókja beállítva** (az `admins` táblában 2 sor van, mindkettőnek van profilja).
+- **Hirdetési sávok:** egy későbbi fázisban térünk vissza rájuk (D-008/27); addig marad a „Hirdetés” helykitöltő. A 4b-ben ne foglalkozz velük.
+- **Az eseményeket nem bíráljuk el** (D-008/28, E-004): a hitelesített partner szabadon feltölt, a csapat utólag módosíthat vagy törölhet.
+- **A profil nélkül maradt fiókok 30 nap után törlődnek** (D-010): jóváhagyva. Ha még nincs kész, ez legyen a 4b első feladata (lásd 3. pont).
+
+**Még nyitott (ezt kérdezd meg a 4b eseményes részei előtt, ha nincs válasz a DECISIONS-ben):**
+
+- Megmarad-e a **felhasználói bejelentés** (D-008/7: indoklással, e-mail a csapatnak)?
+- Hol szedi le vagy módosítja a csapat az eseményt: a Supabase felületén (nincs hozzá külön munka), vagy az appban, az eseményoldalon egy csak adminnak látszó gombbal?
 
 ## 3. A 4b hatóköre (jóváhagyott döntések)
 
-Forrás: D-008/6–9, 16–18, 24–26. Ezen túl semmit ne építs be (CLAUDE.md, 1. fejezet).
+Forrás: D-008/6–9, 16–18, 24–28, D-010. Ezen túl semmit ne építs be (CLAUDE.md, 1. fejezet). Ág: `feature/f5-partner-events` (a mainből).
+
+- **A profil nélküli fiókok törlése (D-010):** pg_cron feladat a `supabase/migrations/20261018204345_delete_unconfirmed_users.sql` mintájára, és egy mondat az adatvédelmi tájékoztató helykitöltő szövegében (`privacy.draft`, hu és en).
 
 - **Esemény adatai (D-008/6):** cím, típus (klub / bár / koncert / fesztivál), kezdés és zárás, helyszín, 1–3 műfaj a közös listából (ez határozza meg, kinek ajánljuk), fellépők, jegyár (bruttó, forintban), rövid leírás (legfeljebb 1000 karakter), borítókép.
 - **Helyszín és pin (D-008/24):** a partner címet ad meg, a pint az app teszi le a címből, a partner szükség esetén odébb húzhatja. A felhasználó kérdése volt, hogy ez **fizetés nélkül** megoldható-e; ingyenes geokódolás kell. Lehetőségek: `expo-location` `geocodeAsync` (a telefon saját geokódolója), vagy szerveroldali, ingyenes szolgáltatás a felhasználási feltételeinek betartásával. Ha külső szolgáltatás kell, az termékdöntés: kérdezz.
@@ -48,12 +51,12 @@ Forrás: D-008/6–9, 16–18, 24–26. Ezen túl semmit ne építs be (CLAUDE.m
   - Előtte **előnézet** „Közzététel után csak mi módosíthatjuk” figyelmeztetéssel; a végleges közzététel gomb **5 másodpercig nem nyomható**, ezt animáció jelzi.
   - Közzététel után a partner **nem módosíthatja**. Helyette „Módosítás kérése” indoklással, e-mailben a csapatnak. **Lemondani** a partner maga is tudja.
   - Az adminok leszedhetik vagy módosíthatják az eseményt.
-- **Bejelentés (D-008/7, 17):** a felhasználók indoklással jelenthetnek be egy eseményt, erről e-mail megy a csapatnak. A leszedés felülete a 2/4. pont szerinti javaslattól függ.
+- **Bejelentés és leszedés (D-008/7, 17, 28):** az eseményeket nem bíráljuk el. A felhasználói bejelentés és a leszedés helye a 2. pont nyitott kérdéseitől függ.
 - **„Új esemény” gomb** a partner Home-ján, az eseményekkel egy helyen (D-008/8).
 - **A partner Home-ja (D-008/18):** a távolságon belüli összes esemény kezdés szerint, a saját eseményei kiemelve.
 - **Képek (D-008/9):** a Home-on és az eseményoldalon a partner borítóképe látszik. (A csevegőtér fejléce az 5. fázisban a legutóbb megosztott kép lesz.)
 - **Jegy (D-008/25):** az eseményoldalon a jegyár látszik, a „Jegyvásárlás” gomb továbbra is „Hamarosan elérhető”. A jegyértékesítés külön fázis lesz, a 7. után, a kiadás előtt.
-- **Hirdetési sávok (D-008/26):** csak a 2/3. pont válaszai után.
+- **Hirdetési sávok (D-008/26–27):** nem része a 4b-nek, egy későbbi fázisban térünk vissza rájuk.
 
 ## 4. A meglévő kód, amelyre a 4b épül
 
