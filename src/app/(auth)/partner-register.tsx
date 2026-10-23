@@ -18,15 +18,19 @@ export default function PartnerRegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [accountExists, setAccountExists] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function handleRegister() {
     setError(null);
+    setAccountExists(false);
     setBusy(true);
     try {
       const result = await signUp(email, password, 'partner');
       if (result === 'accountExists') {
+        // Usually an earlier, unfinished partner sign-up: signing in continues the application.
         setError(t('partners.accountExists'));
+        setAccountExists(true);
         return;
       }
       router.replace({ pathname: '/verify-email', params: { email: email.trim(), sent: '1' } });
@@ -59,6 +63,13 @@ export default function PartnerRegisterScreen() {
         hint={t('auth.passwordHint', { min: PASSWORD_MIN_LENGTH })}
       />
       <FormMessage message={error} />
+      {accountExists ? (
+        <AppButton
+          label={t('auth.signIn')}
+          variant="secondary"
+          onPress={() => router.dismissTo('/sign-in')}
+        />
+      ) : null}
       <AppButton
         label={t('partners.registerButton')}
         onPress={handleRegister}

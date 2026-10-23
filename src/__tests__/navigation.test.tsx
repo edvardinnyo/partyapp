@@ -386,6 +386,39 @@ describe('partner accounts (D-008)', () => {
     expect(navbarLabels()).toEqual(['Csevegőtér', 'Home', 'Profilkereső']);
   });
 
+  it('sends an unfinished partner sign-up to sign in, then back to its application', async () => {
+    startSignedInAs(null);
+    mockedApi.getMe.mockResolvedValue({ profile: null });
+    // Supabase answers an existing, confirmed address without identities.
+    auth.signUp.mockResolvedValue({ data: { user: { identities: [] } }, error: null } as never);
+    auth.signInWithPassword.mockImplementation(async () => {
+      emitAuth('SIGNED_IN', sessionFor(USER_ID, 'partner'));
+      return { data: {}, error: null } as never;
+    });
+    await renderRouter(APP_DIR);
+
+    await fireEvent.press(screen.getByText('Partnerregisztráció'));
+    await fireEvent.changeText(
+      await screen.findByLabelText('Céges e-mail-cím'),
+      'info@fogashaz.hu',
+    );
+    await fireEvent.changeText(screen.getByLabelText('Jelszó'), 'secret-password');
+    await fireEvent.press(screen.getByText('Regisztráció partnerként'));
+
+    expect(
+      await screen.findByText(/^Ezzel az e-mail-címmel már van fiók\. Ha korábban/),
+    ).toBeOnTheScreen();
+    await fireEvent.press(screen.getByText('Belépés'));
+
+    await fireEvent.changeText(await screen.findByLabelText('E-mail-cím'), 'info@fogashaz.hu');
+    await fireEvent.changeText(screen.getByLabelText('Jelszó'), 'secret-password');
+    await fireEvent.press(screen.getByText('Belépés'));
+
+    // The account type came with the account: the partner application opens again.
+    expect(await screen.findByLabelText('Nyilvános név')).toBeOnTheScreen();
+    expect(screen.queryByText('Elmúltam 18 éves')).toBeNull();
+  });
+
   it('explains a wrong tax number, and accepts the example it shows', async () => {
     startSignedInAs(USER_ID);
     mockedApi.getMe.mockResolvedValue({ profile: null });

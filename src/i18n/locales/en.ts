@@ -150,7 +150,7 @@ export const en: Translation = {
     businessEmail: 'Business email',
     registerButton: 'Sign up as a partner',
     accountExists:
-      'There is already an account with this email address. A partner account needs its own address.',
+      'There is already an account with this email address. If you started a partner sign-up with it before, sign in with it to continue where you left off. If you do not remember the password, you can set a new one when signing in.',
     applicationTitle: 'Partner application',
     applicationIntro:
       'The Nocturnal team reviews your application and emails you the decision. Until it is approved you cannot publish events.',
