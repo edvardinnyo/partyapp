@@ -105,7 +105,7 @@ A projekt: `ryqbsalvqwvamhrcliht` (Frankfurt). A Supabase CLI fejlesztői függ�
 
 Az eseményeket a partnerek (klubok, bárok, koncerthelyszínek, szervezők) maguk töltik fel, a saját fiókjukból.
 
-- **Regisztráció:** a belépés és a regisztráció képernyő alján, „Partnerregisztráció”. Csak e-mail-címmel és jelszóval lehet (Google nélkül); a címet itt is a 6 jegyű kód erősíti meg.
+- **Regisztráció:** a belépés és a regisztráció képernyő alján, „Partnerregisztráció”. Csak e-mail-címmel és jelszóval lehet (Google nélkül). Előbb a teljes kérelmet kell kitölteni, a 6 jegyű kód a végén jön, és a kód beírása után a kérelem magától elmegy (D-008/22). Aki a kód előtt abbahagyja, később ugyanazzal a címmel újrakezdheti.
 - **Kérelem:** nyilvános név, felhasználónév, logó, cégnév, adószám (az ellenőrző számjeggyel együtt ellenőrizve), kapcsolattartó és telefonszám, a helyszín címe, opcionálisan weboldal; a partner elfogadja a partneri feltételeket és az adatvédelmi tájékoztatót. Ízlést nem választ.
 - **Értesítés a csapatnak:** minden beküldött és javított kérelemről e-mail megy a `PARTNER_REVIEW_EMAIL` címre (`partner@nocturnal.hu`), a Resend API-n keresztül. Ehhez két Supabase secret kell:
   ```sh

@@ -124,6 +124,7 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
   19. **Nyilvános név:** a partner nyilvános nevet (márkanevet) és felhasználónevet ad meg; a cégnevet és az adószámot csak a csapat látja.
   20. **Jelölőnégyzetek a partnerregisztrációnál:** a partneri feltételek és az adatvédelmi tájékoztató elfogadása, „Elmúltam 18 éves” nélkül.
   21. **Partner-postafiók:** `partner@nocturnal.hu`.
+  22. **Az e-mail-megerősítés a partnerregisztráció végére kerül** (2026-10-23): előbb a belépési adatok és a teljes kérelem, utána a kód, és a kód után a kérelem magától beküldődik. A kód beírásáig a szerveren csak a megerősítetlen fiók van, így aki közben abbahagyja, később ugyanazzal a címmel újra regisztrálhat (a megerősítetlen regisztráció 7 nap után amúgy is törlődik, D-004/9).
 - **Még nyitott (2026-10-23):** a pin kézi igazítása a térképen (javaslat), a jegyvásárlás külön fázisban (javaslat), a „hirdetés” szó jelentésének megerősítése, és hogy az e-mailes jóváhagyás milyen felületen történjen (technikai korlát, I-013).
 
 ---
@@ -349,3 +350,8 @@ A jóváhagyott és elutasított javaslatok, a megválaszolt nyitott kérdések 
 - **App:** partnerregisztráció a belépés és a regisztráció alján; közös `useUsernameField` hook; ugyanaz a partner-űrlap az első kérelemhez és a javításhoz; a Home-on állapotkártya (elbírálás alatt, illetve elutasítva indoklással és „Kérelem javítása” gombbal). A partner a távolságon belüli összes eseményt látja kezdés szerint; a profilja pipával, bemutatkozással és címmel jelenik meg, „neuronok” és látogatott helyek nélkül; a Beállításokban nincs ízlés.
 - **CSV-import kivezetve (E-003):** a script, a mintafájl, a CSV-feldolgozó és az időzóna-modul törölve; az `import_events` függvény és a mintaesemények az adatbázisból is (migráció). Az `events` és a `venues` tábla és az élő értesítés marad a 4b-hez.
 - **Tesztek:** 133 (adószám, védett nevek, értesítő e-mail, az új API-útvonalak, a partnerregisztráció, az elutasítás és javítás, a hitelesített profil).
+- **A megerősítés a végén (D-008/22, 2026-10-23):**
+  - A kitöltött kérelem a kód beírásáig csak a telefon memóriájában van, a szerverre semmi nem kerül belőle. A kód után a partner-képernyő automatikusan elküldi (logóval együtt), ha a fiók e-mail-címe egyezik; ha a küldés nem sikerül, az űrlap kitöltve, a hibával jön vissza.
+  - Ha a cím már egy korábbi, félbehagyott fiókhoz tartozik, az app belépésre küld; belépés után a most kitöltött kérelem megy el.
+  - A felhasználónév ellenőrzése belépés nélkül is működik: `GET /api/public/usernames/:username`, csak az app nyilvános kulcsával (publishable key); a többi útvonal továbbra is bejelentkezést kér.
+  - Összesen 138 teszt.
